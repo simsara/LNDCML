@@ -6,3 +6,12 @@ Key|Value|Desc
 |preprocess_result_path|||
 |luna_data|||
 |luna_label|||
+
+## 示例
+luna_segment=G:\workspace\LungNoduleDetection\LUNA16\seg-lungs-LUNA16;
+
+preprocess_result_path=G:\workspace\LungNoduleDetection\data;
+
+luna_data=G:\workspace\LungNoduleDetection\LUNA16;
+
+luna_label=G:\workspace\LungNoduleDetection\LUNA16\CSVFILES\annotations.csv
