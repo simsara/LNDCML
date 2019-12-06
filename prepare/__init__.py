@@ -8,7 +8,7 @@ from scipy.ndimage.interpolation import zoom
 from scipy.ndimage.morphology import binary_dilation, generate_binary_structure
 from skimage.morphology import convex_hull_image
 
-from utils import env
+from utils import env, threadpool
 
 
 def show_image(numpy_image):
@@ -88,6 +88,15 @@ def world_to_voxel(world_coord, origin, spacing):
     return voxel_coord
 
 
+def save_file(file_name, data):
+    if os.path.exists(file_name):
+        if env.get('prepare_cover_data') == '1':
+            os.remove(file_name)
+        else:
+            return
+    np.save(file_name, data)
+
+
 def save_npy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
     is_label = True
     is_clean = True
@@ -97,8 +106,9 @@ def save_npy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
 
     # 因为两张图是对应的，所以后三个变量可以复用
     slice_img, origin, spacing, is_flip = load_itk_image(os.path.join(luna_data, name + '.mhd'))
-    show_image(slice_img)
     mask_img, origin, spacing, is_flip = load_itk_image(os.path.join(luna_segment, name + '.mhd'))
+    # show_image(slice_img)
+    # show_image(mask_img)
     if is_flip:
         mask_img = mask_img[:, ::-1, ::-1]  # 原图被翻转，翻转回来，(slice, w, h)
     new_shape = np.round(np.array(mask_img.shape) * spacing / resolution).astype('int')  # 获取mask在新分辨率下的尺寸
@@ -138,11 +148,11 @@ def save_npy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
                    extend_box[1, 0]:extend_box[1, 1],
                    extend_box[2, 0]:extend_box[2, 1]]
         slice_img = sliceim2[np.newaxis, ...]
-        np.save(os.path.join(savepath, name + '_clean.npy'), slice_img)
-        np.save(os.path.join(savepath, name + '_spacing.npy'), spacing)
-        np.save(os.path.join(savepath, name + '_extendbox.npy'), extend_box)
-        np.save(os.path.join(savepath, name + '_origin.npy'), origin)
-        np.save(os.path.join(savepath, name + '_mask.npy'), mask_img)
+        save_file(os.path.join(savepath, name + '_clean.npy'), slice_img)
+        save_file(os.path.join(savepath, name + '_spacing.npy'), spacing)
+        save_file(os.path.join(savepath, name + '_extendbox.npy'), extend_box)
+        save_file(os.path.join(savepath, name + '_origin.npy'), origin)
+        save_file(os.path.join(savepath, name + '_mask.npy'), mask_img)
 
     if is_label:
         this_annos = np.copy(annos[annos[:, 0] == name])  # 读取该病例对应标签
@@ -163,7 +173,7 @@ def save_npy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
             label2[3] = label2[3] * spacing[1] / resolution[1]  # 对直径应用新的分辨率
             label2[:3] = label2[:3] - np.expand_dims(extend_box[:, 0], 1)  # 将box外的长度砍掉，也就是相对于box的坐标
             label2 = label2[:4].T
-        np.save(os.path.join(savepath, name + '_label.npy'), label2)
+        save_file(os.path.join(savepath, name + '_label.npy'), label2)
 
     print('Process done: %s' % name)
 
@@ -188,11 +198,12 @@ def prepare_luna():
             os.mkdir(tosave_dir)
 
         for i in range(len(filelist)):
-            save_npy_luna(id=i, annos=annos, filelist=filelist,
-                          luna_segment=luna_segment, luna_data=subset_dir,
-                          savepath=tosave_dir)
-            break
-        break  # 先搞一张图
+            threadpool.submit(save_npy_luna(id=i, annos=annos, filelist=filelist,
+                                            luna_segment=luna_segment, luna_data=subset_dir,
+                                            savepath=tosave_dir))
+            # break
+        # break  # 先搞一张图
+    threadpool.join()  # 等线程跑完
 
 
 if __name__ == '__main__':
