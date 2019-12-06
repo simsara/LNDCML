@@ -1,6 +1,7 @@
 import os
 
 import SimpleITK as SimpleITK
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas
 from scipy.ndimage.interpolation import zoom
@@ -8,6 +9,12 @@ from scipy.ndimage.morphology import binary_dilation, generate_binary_structure
 from skimage.morphology import convex_hull_image
 
 from utils import env
+
+
+def show_image(numpy_image):
+    image = np.squeeze(numpy_image[0, ...])
+    plt.imshow(image, cmap='gray')
+    plt.show()
 
 
 def load_itk_image(filename):
@@ -24,8 +31,8 @@ def load_itk_image(filename):
     itk_image = SimpleITK.ReadImage(filename)
     numpy_image = SimpleITK.GetArrayFromImage(itk_image)
 
-    numpy_origin = np.array(list(reversed(itk_image.GetOrigin())))
-    numpy_spacing = np.array(list(reversed(itk_image.GetSpacing())))
+    numpy_origin = np.array(list(reversed(itk_image.GetOrigin())))  # CT原点坐标
+    numpy_spacing = np.array(list(reversed(itk_image.GetSpacing())))  # CT像素间隔
 
     return numpy_image, numpy_origin, numpy_spacing, is_flip
 
@@ -35,24 +42,24 @@ def process_mask(mask):
     for i_layer in range(convex_mask.shape[0]):
         mask1 = np.ascontiguousarray(mask[i_layer])
         if np.sum(mask1) > 0:
-            mask2 = convex_hull_image(mask1)
-            if np.sum(mask2) > 1.5 * np.sum(mask1):
+            mask2 = convex_hull_image(mask1)  # 计算凸包
+            if np.sum(mask2) > 1.5 * np.sum(mask1):  # 凸包面积是之前的1.5倍
                 mask2 = mask1
         else:
             mask2 = mask1
         convex_mask[i_layer] = mask2
-    struct = generate_binary_structure(3, 1)
-    dilated_mask = binary_dilation(convex_mask, structure=struct, iterations=10)
+    struct = generate_binary_structure(3, 1)  # 3*3*3 的方块
+    dilated_mask = binary_dilation(convex_mask, structure=struct, iterations=10)  # 膨胀10次
     return dilated_mask
 
 
-def lumTrans(img):
-    lungwin = np.array([-1200., 600.])
-    newimg = (img - lungwin[0]) / (lungwin[1] - lungwin[0])
-    newimg[newimg < 0] = 0
-    newimg[newimg > 1] = 1
-    newimg = (newimg * 255).astype('uint8')
-    return newimg
+def lum_trans(img):
+    lung_win = np.array([-1200., 600.])
+    new_img = (img - lung_win[0]) / (lung_win[1] - lung_win[0])
+    new_img[new_img < 0] = 0
+    new_img[new_img > 1] = 1
+    new_img = (new_img * 255).astype('uint8')
+    return new_img
 
 
 def resample(imgs, spacing, new_spacing, order=2):
@@ -75,10 +82,10 @@ def resample(imgs, spacing, new_spacing, order=2):
         raise ValueError('wrong shape')
 
 
-def worldToVoxelCoord(worldCoord, origin, spacing):
-    stretchedVoxelCoord = np.absolute(worldCoord - origin)
-    voxelCoord = stretchedVoxelCoord / spacing
-    return voxelCoord
+def world_to_voxel(world_coord, origin, spacing):
+    stretched_voxel_coord = np.absolute(world_coord - origin)
+    voxel_coord = stretched_voxel_coord / spacing
+    return voxel_coord
 
 
 def save_npy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
@@ -88,65 +95,63 @@ def save_npy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
     #     resolution = np.array([2,2,2])
     name = filelist[id]
 
-    sliceim, origin, spacing, is_flip = load_itk_image(os.path.join(luna_data, name + '.mhd'))
-
-    Mask, origin, spacing, is_flip = load_itk_image(os.path.join(luna_segment, name + '.mhd'))
+    # 因为两张图是对应的，所以后三个变量可以复用
+    slice_img, origin, spacing, is_flip = load_itk_image(os.path.join(luna_data, name + '.mhd'))
+    show_image(slice_img)
+    mask_img, origin, spacing, is_flip = load_itk_image(os.path.join(luna_segment, name + '.mhd'))
     if is_flip:
-        Mask = Mask[:, ::-1, ::-1]
-    newshape = np.round(np.array(Mask.shape) * spacing / resolution).astype('int')
-    m1 = Mask == 3
-    m2 = Mask == 4
-    Mask = m1 + m2
+        mask_img = mask_img[:, ::-1, ::-1]  # 原图被翻转，翻转回来，(slice, w, h)
+    new_shape = np.round(np.array(mask_img.shape) * spacing / resolution).astype('int')  # 获取mask在新分辨率下的尺寸
+    m1 = mask_img == 3  # 二值图 LUNA16的掩码有两种值，3和4
+    m2 = mask_img == 4  # 其它置位0
+    mask_img = m1 + m2  # 合并
 
-    xx, yy, zz = np.where(Mask)
-    box = np.array([[np.min(xx), np.max(xx)], [np.min(yy), np.max(yy)], [np.min(zz), np.max(zz)]])
-    box = box * np.expand_dims(spacing, 1) / np.expand_dims(resolution, 1)
+    xx, yy, zz = np.where(mask_img)  # 返回的是>0的坐标
+    box = np.array([[np.min(xx), np.max(xx)], [np.min(yy), np.max(yy)], [np.min(zz), np.max(zz)]])  # 取每个维度的上下限
+    box = box * np.expand_dims(spacing, 1) / np.expand_dims(resolution, 1)  # 按新分辨率调整box
     box = np.floor(box).astype('int')
     margin = 5
-    extendbox = np.vstack(
-        [np.max([[0, 0, 0], box[:, 0] - margin], 0), np.min([newshape, box[:, 1] + 2 * margin], axis=0).T]).T
-
-    this_annos = np.copy(annos[annos[:, 0] == (name)])
+    extend_box = np.vstack(
+        [np.max([[0, 0, 0], box[:, 0] - margin], axis=0),
+         np.min([new_shape, box[:, 1] + 2 * margin], axis=0).T]
+    ).T  # 稍微把box扩展一下
 
     if is_clean:
-        convex_mask = m1
-        dm1 = process_mask(m1)
+        dm1 = process_mask(m1)  # 对掩码采取膨胀操作，去除肺部黑洞
         dm2 = process_mask(m2)
         dilated_mask = dm1 + dm2
-        Mask = m1 + m2
+        mask_img = m1 + m2
 
-        extramask = dilated_mask ^ Mask
+        extra_mask = dilated_mask ^ mask_img  # 提取轮廓
         bone_thresh = 210
         pad_value = 170
 
         if is_flip:
-            sliceim = sliceim[:, ::-1, ::-1]
-            print('flip!')
-        sliceim = lumTrans(sliceim)
-        sliceim = sliceim * dilated_mask + pad_value * (1 - dilated_mask).astype('uint8')
-        bones = (sliceim * extramask) > bone_thresh
-        sliceim[bones] = pad_value
+            slice_img = slice_img[:, ::-1, ::-1]
+        slice_img = lum_trans(slice_img)  # 对原始数据阈值化，并归一化
+        slice_img = slice_img * dilated_mask + pad_value * (1 - dilated_mask).astype('uint8')  # 170对应归一化后的水，掩码外的区域补充为水
+        bones = (slice_img * extra_mask) > bone_thresh  # 210对应归一化后的骨头，凡是大于骨头的区域都填充为水
+        slice_img[bones] = pad_value
 
-        sliceim1, _ = resample(sliceim, spacing, resolution, order=1)
-        sliceim2 = sliceim1[extendbox[0, 0]:extendbox[0, 1],
-                   extendbox[1, 0]:extendbox[1, 1],
-                   extendbox[2, 0]:extendbox[2, 1]]
-        sliceim = sliceim2[np.newaxis, ...]
-        np.save(os.path.join(savepath, name + '_clean.npy'), sliceim)
+        sliceim1, _ = resample(slice_img, spacing, resolution, order=1)
+        sliceim2 = sliceim1[extend_box[0, 0]:extend_box[0, 1],
+                   extend_box[1, 0]:extend_box[1, 1],
+                   extend_box[2, 0]:extend_box[2, 1]]
+        slice_img = sliceim2[np.newaxis, ...]
+        np.save(os.path.join(savepath, name + '_clean.npy'), slice_img)
         np.save(os.path.join(savepath, name + '_spacing.npy'), spacing)
-        np.save(os.path.join(savepath, name + '_extendbox.npy'), extendbox)
+        np.save(os.path.join(savepath, name + '_extendbox.npy'), extend_box)
         np.save(os.path.join(savepath, name + '_origin.npy'), origin)
-        np.save(os.path.join(savepath, name + '_mask.npy'), Mask)
+        np.save(os.path.join(savepath, name + '_mask.npy'), mask_img)
 
     if is_label:
-        this_annos = np.copy(annos[annos[:, 0] == (name)])
+        this_annos = np.copy(annos[annos[:, 0] == name])  # 读取该病例对应标签
         label = []
         if len(this_annos) > 0:
-
             for c in this_annos:
-                pos = worldToVoxelCoord(c[1:4][::-1], origin=origin, spacing=spacing)
+                pos = world_to_voxel(c[1:4][::-1], origin=origin, spacing=spacing)
                 if is_flip:
-                    pos[1:] = Mask.shape[1:3] - pos[1:]
+                    pos[1:] = mask_img.shape[1:3] - pos[1:]
                 label.append(np.concatenate([pos, [c[4] / spacing[1]]]))
 
         label = np.array(label)
@@ -154,13 +159,13 @@ def save_npy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
             label2 = np.array([[0, 0, 0, 0]])
         else:
             label2 = np.copy(label).T
-            label2[:3] = label2[:3] * np.expand_dims(spacing, 1) / np.expand_dims(resolution, 1)
-            label2[3] = label2[3] * spacing[1] / resolution[1]
-            label2[:3] = label2[:3] - np.expand_dims(extendbox[:, 0], 1)
+            label2[:3] = label2[:3] * np.expand_dims(spacing, 1) / np.expand_dims(resolution, 1)  # 对标签应用新的分辨率
+            label2[3] = label2[3] * spacing[1] / resolution[1]  # 对直径应用新的分辨率
+            label2[:3] = label2[:3] - np.expand_dims(extend_box[:, 0], 1)  # 将box外的长度砍掉，也就是相对于box的坐标
             label2 = label2[:4].T
         np.save(os.path.join(savepath, name + '_label.npy'), label2)
 
-    print(name)
+    print('Process done: %s' % name)
 
 
 def prepare_luna():
@@ -174,7 +179,7 @@ def prepare_luna():
     annos = np.array(pandas.read_csv(luna_label))
     if not os.path.exists(save_path):
         os.mkdir(save_path)
-    for setidx in range(1):  # 先用1个文件夹测试
+    for setidx in range(10):
         print('process subset%d' % setidx)
         subset_dir = os.path.join(luna_data, 'subset' + str(setidx))
         tosave_dir = os.path.join(save_path, 'subset' + str(setidx))
@@ -186,6 +191,8 @@ def prepare_luna():
             save_npy_luna(id=i, annos=annos, filelist=filelist,
                           luna_segment=luna_segment, luna_data=subset_dir,
                           savepath=tosave_dir)
+            break
+        break  # 先搞一张图
 
 
 if __name__ == '__main__':
