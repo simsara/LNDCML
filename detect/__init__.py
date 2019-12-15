@@ -16,12 +16,12 @@ log = get_logger(__name__)
 
 
 def get_file_list(args):
-    preprocess_result_path = env.get('luna_data')
+    luna_data_dir = env.get('luna_data')
     train_files = []
     test_files = []
     train_dir_count = 0
     test_dir_count = 0
-    for subset in os.listdir(preprocess_result_path):
+    for subset in os.listdir(luna_data_dir):
         if not subset.startswith('subset'):
             continue
         arr_to_append = None
@@ -33,7 +33,7 @@ def get_file_list(args):
             test_dir_count += 1
         if arr_to_append is None:
             break
-        subset_dir = os.path.join(preprocess_result_path, subset)
+        subset_dir = os.path.join(luna_data_dir, subset)
         for f in os.listdir(subset_dir):
             if not f.endswith('.mhd'):  # TODO 没有抄黑名单
                 continue
@@ -78,14 +78,15 @@ def check_data(data_loader):
 
 
 def get_learning_rate(args, epoch):
+    lr = args.learning_rate
     if epoch <= args.epochs * 1 / 3:
-        lr = args.lr
+        lr = lr
     elif epoch <= args.epochs * 2 / 3:
-        lr = 0.1 * args.lr
+        lr = 0.1 * lr
     elif epoch <= args.epochs * 0.8:
-        lr = 0.05 * args.lr
+        lr = 0.05 * lr
     else:
-        lr = 0.01 * args.lr
+        lr = 0.01 * lr
     return lr
 
 
@@ -154,7 +155,7 @@ def run_train():
     val_loader = get_val_loader(args, config)
     optimizer = torch.optim.SGD(
         net.parameters(),
-        args.lr,
+        args.learning_rate,
         momentum=0.9,
         weight_decay=args.weight_decay)
 
