@@ -9,6 +9,9 @@ from scipy.ndimage.morphology import binary_dilation, generate_binary_structure
 from skimage.morphology import convex_hull_image
 
 from utils import env, threadpool
+from utils.log import get_logger
+
+log = get_logger(__name__)
 
 
 def show_image(numpy_image):
@@ -173,9 +176,10 @@ def save_npy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
             label2[3] = label2[3] * spacing[1] / resolution[1]  # 对直径应用新的分辨率
             label2[:3] = label2[:3] - np.expand_dims(extend_box[:, 0], 1)  # 将box外的长度砍掉，也就是相对于box的坐标
             label2 = label2[:4].T
-        save_file(os.path.join(savepath, name + '_label.npy'), label2)
+        label_file_name = os.path.join(savepath, '%s_label.npy' % name)
+        save_file(label_file_name, label2)
 
-    print('Process done: %s' % name)
+    log.info('Process done: %s' % name)
 
 
 def prepare_luna():
@@ -184,13 +188,13 @@ def prepare_luna():
     luna_data = env.get('luna_data')  # LUNA16的原始数据
     luna_label = env.get('luna_label')  # 存放所有病例标签的文件 内容格式: id, x, y, z, r
 
-    print('starting preprocessing luna')
+    log.info('starting preprocessing luna')
 
     annos = np.array(pandas.read_csv(luna_label))
     if not os.path.exists(save_path):
         os.mkdir(save_path)
     for setidx in range(10):
-        print('process subset%d' % setidx)
+        log.info('process subset%d' % setidx)
         subset_dir = os.path.join(luna_data, 'subset' + str(setidx))
         tosave_dir = os.path.join(save_path, 'subset' + str(setidx))
         filelist = [f.split('.mhd')[0] for f in os.listdir(subset_dir) if f.endswith('.mhd')]
@@ -198,11 +202,12 @@ def prepare_luna():
             os.mkdir(tosave_dir)
 
         for i in range(len(filelist)):
-            threadpool.submit(save_npy_luna(id=i, annos=annos, filelist=filelist,
-                                            luna_segment=luna_segment, luna_data=subset_dir,
-                                            savepath=tosave_dir))
-            # break
-        # break  # 先搞一张图
+            threadpool.submit(save_npy_luna, id=i, annos=annos, filelist=filelist,
+                              luna_segment=luna_segment, luna_data=subset_dir,
+                              savepath=tosave_dir)
+            if i == 1:
+                break
+        break  # 先搞一张图
     threadpool.join()  # 等线程跑完
 
 
