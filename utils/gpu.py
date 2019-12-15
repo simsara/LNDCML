@@ -21,10 +21,8 @@ def get_free_ids():
     for i in range(device_count):
         if get_free_ratio(i) < 70:
             available.append(i)
-    gpus = []
-    for g in available:
-        gpus.append(g)
-    return gpus
+    log.info('Available gpu: %s', available)
+    return available
 
 
 def set_gpu(input: str):
@@ -33,7 +31,7 @@ def set_gpu(input: str):
     if input == 'all':
         to_use = free_ids
     else:
-        input_arr = input.split(',')
+        input_arr = [int(j) for j in input.split(',')]
         for i in input_arr:
             if i in free_ids:
                 to_use.append(i)
@@ -48,4 +46,4 @@ def set_gpu(input: str):
 
 
 if __name__ == '__main__':
-    log.info(set_gpu('all'))
+    log.info(set_gpu('0'))
