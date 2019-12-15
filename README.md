@@ -1,5 +1,5 @@
 为了毕业
-#执行方式
+# 执行方式
 python3 run.py --job prepare
 ## 可用参数
 Key|Default|Desc
@@ -27,10 +27,10 @@ Key|Default|Desc
 ## 数据预处理部分
 Key|Value|Desc
 |:----:|:----:|:----:|
-|luna_segment|/your-path-of-luna/|存放mask数据集的地方|
-|luna_data|your-path-of-luna/|存放原始数据的地方，里面有subset0~9个文件夹|
-|luna_label|your-path-of-luna/|存放标记的地方|
-|preprocess_result_path|your-path-of-luna/|保存预处理文件的路径|
+|luna_segment|your-path-of-luna|存放mask数据集的地方|
+|luna_data|your-path-of-luna|存放原始数据的地方，里面有subset0~9个文件夹|
+|luna_label|your-path-of-luna|存放标记的地方|
+|preprocess_result_path|your-path-of-luna|保存预处理文件的路径|
 |prepare_cover_data|1|是否覆盖之前生成的预处理文件|
 
 ### 示例
