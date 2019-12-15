@@ -27,17 +27,24 @@ def get_free_ids():
     return gpus
 
 
-def set_gpu(gpuinput):
+def set_gpu(input: str):
     free_ids = get_free_ids()
-    if gpuinput == 'all':
-        gpus = free_ids
+    to_use = []
+    if input == 'all':
+        to_use = free_ids
     else:
-        gpus = gpuinput
-        if gpuinput not in gpus:
-            raise ValueError('gpu %s is being used' % gpuinput)
-    log.info('using gpu %s' % gpus)
-    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(i) for i in gpus)
-    return len(gpus)
+        input_arr = input.split(',')
+        for i in input_arr:
+            if i in free_ids:
+                to_use.append(i)
+            else:
+                log.warn('gpu %s is being used' % i)
+
+    if len(to_use) == 0:
+        raise ValueError('No available gpu')
+    log.info('using gpu %s' % to_use)
+    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(i) for i in to_use)
+    return len(to_use)
 
 
 if __name__ == '__main__':
