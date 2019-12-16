@@ -142,6 +142,7 @@ if __name__ == '__main__':
 
 def get_model():
     net = Net()
+    #net = torch.nn.DataParallel(net)
     loss = Loss(config['num_hard'])
     get_pbb = GetPBB(config)
     return config, net, loss, get_pbb

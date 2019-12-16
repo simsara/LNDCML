@@ -132,19 +132,20 @@ def try_resume(net, args):
 
 def common_init(args):
     torch.manual_seed(0)
-    torch.cuda.set_device(0)
+ #   torch.cuda.set_device(2)
 
     model = netdef.get_model(args.model)
     config, net, loss, get_pbb = model.get_model()
 
     try_resume(net, args)
 
-    n_gpu = gpu.set_gpu(args.gpu)
-    args.n_gpu = n_gpu
-    net = net.cuda()
+   # n_gpu = gpu.set_gpu(args.gpu)
+   # args.n_gpu = n_gpu
+   # print("n_gpu",n_gpu)
+   # net = net.cuda()
     loss = loss.cuda()
     cudnn.benchmark = False
-    net = DataParallel(net)
+   # net = DataParallel(net)
     return config, net, loss, get_pbb
 
 
@@ -159,6 +160,7 @@ def run_train():
         momentum=0.9,
         weight_decay=args.weight_decay)
 
+    print("we have", torch.cuda.device_count(), "GPUs")
     for epoch in range(max(args.start_epoch, 1), args.epochs + 1):
         train(train_loader, net, loss, epoch, optimizer, args)
         validate(val_loader, net, loss)
@@ -187,7 +189,7 @@ def train(data_loader, net, loss, epoch, optimizer, args):
         loss_output[0].backward()
         optimizer.step()
 
-        loss_output[0] = loss_output[0].data[0]
+        loss_output[0] = loss_output[0].item()  #loss_output[0] = loss_output[0].data[0]
         metrics.append(loss_output)
         log.info('Finish epoch [%d] file [%d]' % (epoch, i))
 
@@ -235,7 +237,7 @@ def validate(data_loader, net, loss):
         output = net(data, coord)
         loss_output = loss(output, target, train=False)
 
-        loss_output[0] = loss_output[0].data[0]
+        loss_output[0] = loss_output[0].item()  # loss_output[0] = loss_output[0].data[0]
         metrics.append(loss_output)
     end_time = time.time()
 
