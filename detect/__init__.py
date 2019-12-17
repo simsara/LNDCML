@@ -7,8 +7,9 @@ from torch.backends import cudnn
 from torch.nn import DataParallel
 from torch.utils.data import DataLoader
 
-from detect import netdef
+from detect import netdef, data
 from detect.data.dataset import DataBowl3Detector
+from detect.data.split_combo import SplitComb
 from utils import gpu, env
 from utils.log import get_logger
 
@@ -43,33 +44,45 @@ def get_file_list(args):
     return train_files, test_files
 
 
-def get_data_loader(data_dir, files, args, net_config):
+def get_train_loader(args, net_config):
+    train_files, test_files = get_file_list(args)
+    data_dir = env.get('preprocess_result_path')
+
     dataset = DataBowl3Detector(
         data_dir,
-        files,
+        train_files,
         net_config,
         phase='train')
-    data_loader = DataLoader(
+    train_loader = DataLoader(
         dataset,
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.workers,
         pin_memory=True)
-    check_data(data_loader)
-    log.info('Load file successfully.')
-    return data_loader
 
+    check_data(train_loader)
 
-def get_train_loader(args, net_config):
-    train_files, test_files = get_file_list(args)
-    data_dir = env.get('preprocess_result_path')
-    return get_data_loader(data_dir, train_files, args, net_config)
+    return train_loader
 
 
 def get_val_loader(args, net_config):
     train_files, test_files = get_file_list(args)
     data_dir = env.get('preprocess_result_path')
-    return get_data_loader(data_dir, test_files, args, net_config)
+
+    dataset = DataBowl3Detector(
+        data_dir,
+        test_files,
+        net_config,
+        phase='val')
+    val_loader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.workers,
+        pin_memory=True)
+
+    check_data(val_loader)
+    return val_loader
 
 
 def check_data(data_loader):
@@ -132,20 +145,20 @@ def try_resume(net, args):
 
 def common_init(args):
     torch.manual_seed(0)
- #   torch.cuda.set_device(2)
+    #   torch.cuda.set_device(2)
 
     model = netdef.get_model(args.model)
     config, net, loss, get_pbb = model.get_model()
 
     try_resume(net, args)
 
-   # n_gpu = gpu.set_gpu(args.gpu)
-   # args.n_gpu = n_gpu
-   # print("n_gpu",n_gpu)
-   # net = net.cuda()
+    # n_gpu = gpu.set_gpu(args.gpu)
+    # args.n_gpu = n_gpu
+    # print("n_gpu",n_gpu)
+    # net = net.cuda()
     loss = loss.cuda()
     cudnn.benchmark = False
-   # net = DataParallel(net)
+    # net = DataParallel(net)
     return config, net, loss, get_pbb
 
 
@@ -189,7 +202,7 @@ def train(data_loader, net, loss, epoch, optimizer, args):
         loss_output[0].backward()
         optimizer.step()
 
-        loss_output[0] = loss_output[0].item()  #loss_output[0] = loss_output[0].data[0]
+        loss_output[0] = loss_output[0].item()  # loss_output[0] = loss_output[0].data[0]
         metrics.append(loss_output)
         log.info('Finish epoch [%d] file [%d]' % (epoch, i))
 
@@ -255,6 +268,92 @@ def validate(data_loader, net, loss):
         np.mean(metrics[:, 3]),
         np.mean(metrics[:, 4]),
         np.mean(metrics[:, 5])))
+
+
+def get_test_loader(args, net_config):
+    train_files, test_files = get_file_list(args)
+    data_dir = env.get('preprocess_result_path')
+
+    split_comber = SplitComb(net_config['side_len'], net_config['max_stride'], net_config['stride'],
+                             net_config['margin'], net_config['pad_value'])
+    dataset = DataBowl3Detector(
+        data_dir,
+        test_files,
+        net_config,
+        phase='test',
+        split_comber=split_comber)
+    test_loader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=args.workers,
+        collate_fn=data.collate,
+        pin_memory=False)
+
+    check_data(test_loader)
+    return test_loader
+
+
+def run_test():
+    args = env.get_args()
+    torch.manual_seed(0)
+    torch.cuda.set_device(0)
+
+    model = netdef.get_model(args.model)
+    config, net, loss, get_pbb = model.get_model()
+
+    test(get_test_loader(args, config), net, get_pbb, args, config)
+
+
+def test(data_loader, net, get_pbb, args, net_config):
+    net_save_dir = get_save_dir(args)
+    save_dir = os.path.join(net_save_dir, 'bbox')
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    net.eval()
+    namelist = []
+    split_comber = data_loader.dataset.split_comber
+    for i_name, (data, target, coord, nzhw) in enumerate(data_loader):
+        target = [np.asarray(t, np.float32) for t in target]
+        lbb = target[0]
+        nzhw = nzhw[0]
+        name = data_loader.dataset.filenames[i_name].split('/')[-1].split('_clean')[0]  # .split('-')[0]  wentao change
+        data = data[0][0]
+        coord = coord[0][0]
+        isfeat = False
+        if 'output_feature' in net_config:
+            if net_config['output_feature']:
+                isfeat = True
+        n_per_run = args.n_test
+        splitlist = range(0, len(data) + 1, n_per_run)
+        if splitlist[-1] != len(data):
+            splitlist.append(len(data))
+        outputlist = []
+        featurelist = []
+
+        for i in range(len(splitlist) - 1):
+            input = data[splitlist[i]:splitlist[i + 1]].cuda()
+            inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
+            if isfeat:
+                output, feature = net(input, inputcoord)
+                featurelist.append(feature.data.cpu().numpy())
+            else:
+                output = net(input, inputcoord)
+            outputlist.append(output.data.cpu().numpy())
+        output = np.concatenate(outputlist, 0)
+        output = split_comber.combine(output, nzhw=nzhw)
+        if isfeat:
+            feature = np.concatenate(featurelist, 0).transpose([0, 2, 3, 4, 1])[:, :, :, :, :, np.newaxis]
+            feature = split_comber.combine(feature, net_config['side_len'])[..., 0]
+
+        thresh = args.testthresh  # -8 #-3
+        pbb, mask = get_pbb(output, thresh, ismask=True)
+        if isfeat:
+            feature_selected = feature[mask[0], mask[1], mask[2]]
+            np.save(os.path.join(save_dir, name + '_feature.npy'), feature_selected)
+        np.save(os.path.join(save_dir, name + '_pbb.npy'), pbb)
+        np.save(os.path.join(save_dir, name + '_lbb.npy'), lbb)
+    np.save(os.path.join(save_dir, 'namelist.npy'), namelist)
 
 
 if __name__ == '__main__':
