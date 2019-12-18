@@ -1,10 +1,10 @@
 import os
 import time
+from collections import OrderedDict
 
 import numpy as np
 import torch
 from torch.backends import cudnn
-from torch.nn import DataParallel
 from torch.utils.data import DataLoader
 
 from detect import netdef, data
@@ -60,8 +60,6 @@ def get_train_loader(args, net_config):
         num_workers=args.workers,
         pin_memory=True)
 
-    check_data(train_loader)
-
     return train_loader
 
 
@@ -81,13 +79,7 @@ def get_val_loader(args, net_config):
         num_workers=args.workers,
         pin_memory=True)
 
-    check_data(val_loader)
     return val_loader
-
-
-def check_data(data_loader):
-    for i, (data, target, coord) in enumerate(data_loader):  # check data consistency
-        pass  # empty check
 
 
 def get_learning_rate(args, epoch):
@@ -130,35 +122,33 @@ def try_resume(net, args):
     resume_epoch = args.resume_epoch
     if resume_epoch == -1:
         file_list = os.listdir(save_dir)
-        file_list.sort()
-        if len(file_list) > 0:
-            last_file_name = file_list[len(file_list) - 1]
+        vali_file_list = [f for f in file_list if f.endswith('.ckpt')]
+        vali_file_list.sort()
+        if len(vali_file_list) > 0:
+            last_file_name = vali_file_list[len(vali_file_list) - 1]
             resume_epoch = int(last_file_name[:-5])
     file_name = get_save_file_name(save_dir, resume_epoch)
     args.start_epoch = resume_epoch
     if os.path.exists(file_name):
         checkpoint = torch.load(file_name)
-        net.load_state_dict(checkpoint['state_dict'])
+        new_state_dict = OrderedDict()
+        for k, v in checkpoint['state_dict'].items():
+            name = 'module.%s' % k  # add `module.`
+            new_state_dict[name] = v
+        net.load_state_dict(new_state_dict)
     else:
         log.info('No saved file. ID: %s. Epoch: %s' % (args.id, resume_epoch))
 
 
 def common_init(args):
+    gpu.set_gpu(args.gpu)
     torch.manual_seed(0)
-    #   torch.cuda.set_device(2)
-
     model = netdef.get_model(args.model)
     config, net, loss, get_pbb = model.get_model()
-
-    try_resume(net, args)
-
-    # n_gpu = gpu.set_gpu(args.gpu)
-    # args.n_gpu = n_gpu
-    # print("n_gpu",n_gpu)
-    # net = net.cuda()
     loss = loss.cuda()
     cudnn.benchmark = False
-    # net = DataParallel(net)
+    try_resume(net, args)
+    log.info("we have %s GPUs" % torch.cuda.device_count())
     return config, net, loss, get_pbb
 
 
@@ -173,7 +163,6 @@ def run_train():
         momentum=0.9,
         weight_decay=args.weight_decay)
 
-    print("we have", torch.cuda.device_count(), "GPUs")
     for epoch in range(max(args.start_epoch, 1), args.epochs + 1):
         train(train_loader, net, loss, epoch, optimizer, args)
         validate(val_loader, net, loss)
@@ -290,17 +279,12 @@ def get_test_loader(args, net_config):
         collate_fn=data.collate,
         pin_memory=False)
 
-    #check_data(test_loader)
     return test_loader
 
 
 def run_test():
     args = env.get_args()
-    torch.manual_seed(0)
-    torch.cuda.set_device(0)
-
-    model = netdef.get_model(args.model)
-    config, net, loss, get_pbb = model.get_model()
+    config, net, loss, get_pbb = common_init(args)
 
     test(get_test_loader(args, config), net, get_pbb, args, config)
 
@@ -317,7 +301,7 @@ def test(data_loader, net, get_pbb, args, net_config):
         target = [np.asarray(t, np.float32) for t in target]
         lbb = target[0]
         nzhw = nzhw[0]
-        name = data_loader.dataset.filenames[i_name].split('/')[-1].split('_clean')[0]  # .split('-')[0]  wentao change
+        name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[0]  # .split('-')[0]  wentao change
         data = data[0][0]
         coord = coord[0][0]
         isfeat = False
