@@ -60,8 +60,6 @@ def get_train_loader(args, net_config):
         num_workers=args.workers,
         pin_memory=True)
 
-    check_data(train_loader)
-
     return train_loader
 
 
@@ -81,13 +79,7 @@ def get_val_loader(args, net_config):
         num_workers=args.workers,
         pin_memory=True)
 
-    check_data(val_loader)
     return val_loader
-
-
-def check_data(data_loader):
-    for i, (data, target, coord) in enumerate(data_loader):  # check data consistency
-        pass  # empty check
 
 
 def get_learning_rate(args, epoch):
@@ -155,6 +147,7 @@ def common_init(args):
 
 def run_train():
     args = env.get_args()
+    gpu.set_gpu(args.gpu)
     config, net, loss, get_pbb = common_init(args)
     train_loader = get_train_loader(args, config)
     val_loader = get_val_loader(args, config)
@@ -281,15 +274,13 @@ def get_test_loader(args, net_config):
         collate_fn=data.collate,
         pin_memory=False)
 
-    #check_data(test_loader)
     return test_loader
 
 
 def run_test():
     args = env.get_args()
     torch.manual_seed(0)
-    torch.cuda.set_device(0)
-
+    gpu.set_gpu(args.gpu)
     model = netdef.get_model(args.model)
     config, net, loss, get_pbb = model.get_model()
 
