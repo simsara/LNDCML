@@ -145,20 +145,11 @@ def try_resume(net, args):
 
 def common_init(args):
     torch.manual_seed(0)
-    #   torch.cuda.set_device(2)
-
     model = netdef.get_model(args.model)
     config, net, loss, get_pbb = model.get_model()
-
     try_resume(net, args)
-
-    # n_gpu = gpu.set_gpu(args.gpu)
-    # args.n_gpu = n_gpu
-    # print("n_gpu",n_gpu)
-    # net = net.cuda()
     loss = loss.cuda()
     cudnn.benchmark = False
-    # net = DataParallel(net)
     return config, net, loss, get_pbb
 
 
@@ -317,7 +308,7 @@ def test(data_loader, net, get_pbb, args, net_config):
         target = [np.asarray(t, np.float32) for t in target]
         lbb = target[0]
         nzhw = nzhw[0]
-        name = data_loader.dataset.filenames[i_name].split('/')[-1].split('_clean')[0]  # .split('-')[0]  wentao change
+        name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[0]  # .split('-')[0]  wentao change
         data = data[0][0]
         coord = coord[0][0]
         isfeat = False

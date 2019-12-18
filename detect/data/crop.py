@@ -20,7 +20,7 @@ class Crop(object):
                 np.max([np.min([(diam_lim[1] / target[3]), scale_lim[1]]), 1])
             ]  # 直径径在规定范围内的缩放范围
             scale = np.random.rand() * (scale_range[1] - scale_range[0]) + scale_range[0]  # 随机缩放比例
-            crop_size = (np.array(self.crop_size).astype('float') / scale).astype('int')  # 裁剪大小
+            crop_size = (np.array(self.crop_size).astype('float') / scale).astype('int')  # 裁剪大小 d小crop大 d大crop小
         else:
             crop_size = self.crop_size
         bound_size = self.bound_size
@@ -29,10 +29,10 @@ class Crop(object):
 
         start = []
         for i in range(3):  # x, y, z
-            if not is_rand:
+            if not is_rand:  # TODO 为什么不是从中间
                 r = target[3] / 2
                 s = np.floor(target[i] - r) + 1 - bound_size
-                e = np.ceil(target[i] + r) + 1 + bound_size - crop_size[i]
+                e = np.ceil(target[i] + r) + 1 + bound_size - crop_size[i]  # TODO 剪掉 crop_size 这么多？
             else:
                 s = np.max([imgs.shape[i + 1] - crop_size[i] / 2, imgs.shape[i + 1] / 2 + bound_size])
                 e = np.min([crop_size[i] / 2, imgs.shape[i + 1] / 2 - bound_size])
