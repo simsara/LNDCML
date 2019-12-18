@@ -4,7 +4,6 @@ import time
 import numpy as np
 import torch
 from torch.backends import cudnn
-from torch.nn import DataParallel
 from torch.utils.data import DataLoader
 
 from detect import netdef, data
@@ -122,9 +121,10 @@ def try_resume(net, args):
     resume_epoch = args.resume_epoch
     if resume_epoch == -1:
         file_list = os.listdir(save_dir)
-        file_list.sort()
-        if len(file_list) > 0:
-            last_file_name = file_list[len(file_list) - 1]
+        vali_file_list = [f for f in file_list if f.endswith('.ckpt')]
+        vali_file_list.sort()
+        if len(vali_file_list) > 0:
+            last_file_name = vali_file_list[len(vali_file_list) - 1]
             resume_epoch = int(last_file_name[:-5])
     file_name = get_save_file_name(save_dir, resume_epoch)
     args.start_epoch = resume_epoch
@@ -140,9 +140,9 @@ def common_init(args):
     torch.manual_seed(0)
     model = netdef.get_model(args.model)
     config, net, loss, get_pbb = model.get_model()
-    try_resume(net, args)
     loss = loss.cuda()
     cudnn.benchmark = False
+    try_resume(net, args)
     return config, net, loss, get_pbb
 
 
@@ -157,7 +157,7 @@ def run_train():
         momentum=0.9,
         weight_decay=args.weight_decay)
 
-    print("we have", torch.cuda.device_count(), "GPUs")
+    log.info("we have %s GPUs" % torch.cuda.device_count())
     for epoch in range(max(args.start_epoch, 1), args.epochs + 1):
         train(train_loader, net, loss, epoch, optimizer, args)
         validate(val_loader, net, loss)
