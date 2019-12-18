@@ -274,14 +274,14 @@ def get_test_loader(args, net_config):
     train_files, test_files = get_file_list(args)
     data_dir = env.get('preprocess_result_path')
 
-    split_comber = SplitComb(net_config['side_len'], net_config['max_stride'], net_config['stride'],
+    split_combo = SplitComb(net_config['side_len'], net_config['max_stride'], net_config['stride'],
                              net_config['margin'], net_config['pad_value'])
     dataset = DataBowl3Detector(
         data_dir,
         test_files,
         net_config,
         phase='test',
-        split_comber=split_comber)
+        split_combo=split_combo)
     test_loader = DataLoader(
         dataset,
         batch_size=1,
@@ -290,7 +290,7 @@ def get_test_loader(args, net_config):
         collate_fn=data.collate,
         pin_memory=False)
 
-    check_data(test_loader)
+    #check_data(test_loader)
     return test_loader
 
 
@@ -312,7 +312,7 @@ def test(data_loader, net, get_pbb, args, net_config):
         os.makedirs(save_dir)
     net.eval()
     namelist = []
-    split_comber = data_loader.dataset.split_comber
+    split_combo = data_loader.dataset.split_combo
     for i_name, (data, target, coord, nzhw) in enumerate(data_loader):
         target = [np.asarray(t, np.float32) for t in target]
         lbb = target[0]
@@ -325,7 +325,7 @@ def test(data_loader, net, get_pbb, args, net_config):
             if net_config['output_feature']:
                 isfeat = True
         n_per_run = args.n_test
-        splitlist = range(0, len(data) + 1, n_per_run)
+        splitlist = list(range(0, len(data) + 1, n_per_run))  # python23 range
         if splitlist[-1] != len(data):
             splitlist.append(len(data))
         outputlist = []
@@ -341,10 +341,10 @@ def test(data_loader, net, get_pbb, args, net_config):
                 output = net(input, inputcoord)
             outputlist.append(output.data.cpu().numpy())
         output = np.concatenate(outputlist, 0)
-        output = split_comber.combine(output, nzhw=nzhw)
+        output = split_combo.combine(output, nzhw=nzhw)
         if isfeat:
             feature = np.concatenate(featurelist, 0).transpose([0, 2, 3, 4, 1])[:, :, :, :, :, np.newaxis]
-            feature = split_comber.combine(feature, net_config['side_len'])[..., 0]
+            feature = split_combo.combine(feature, net_config['side_len'])[..., 0]
 
         thresh = args.testthresh  # -8 #-3
         pbb, mask = get_pbb(output, thresh, ismask=True)

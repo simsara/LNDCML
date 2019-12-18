@@ -15,7 +15,7 @@ log = get_logger(__name__)
 
 
 class DataBowl3Detector(Dataset):
-    def __init__(self, data_dir, split_path, config, phase='train', split_comber=None):
+    def __init__(self, data_dir, split_path, config, phase='train', split_combo=None):
         assert (phase == 'train' or phase == 'val' or phase == 'test')
         self.phase = phase
         self.max_stride = config['max_stride']
@@ -28,7 +28,7 @@ class DataBowl3Detector(Dataset):
         self.r_rand = config['r_rand_crop']
         self.augtype = config['augtype']
         self.pad_value = config['pad_value']
-        self.split_comber = split_comber
+        self.split_combo = split_combo
         idcs = split_path
         # if phase != 'test': # TODO
         #     idcs = [f for f in idcs if (f not in self.blacklist)]
@@ -116,11 +116,12 @@ class DataBowl3Detector(Dataset):
                                      np.linspace(-0.5, 0.5, imgs.shape[2] / self.stride),
                                      np.linspace(-0.5, 0.5, imgs.shape[3] / self.stride), indexing='ij')
             coord = np.concatenate([xx[np.newaxis, ...], yy[np.newaxis, ...], zz[np.newaxis, :]], 0).astype('float32')
-            imgs, nzhw = self.split_comber.split(imgs)
-            coord2, nzhw2 = self.split_comber.split(coord,
-                                                    side_len=self.split_comber.side_len / self.stride,
-                                                    max_stride=self.split_comber.max_stride / self.stride,
-                                                    margin=self.split_comber.margin / self.stride)
+            imgs, nzhw = self.split_combo.split(imgs)
+            
+            coord2, nzhw2 = self.split_combo.split(coord,  # python3 python2
+                                                    side_len=int(self.split_combo.side_len / self.stride),
+                                                    max_stride=int(self.split_combo.max_stride / self.stride),
+                                                    margin=int(self.split_combo.margin / self.stride))
             assert np.all(nzhw == nzhw2)
             imgs = (imgs.astype(np.float32) - 128) / 128
             return torch.from_numpy(imgs), bboxes, torch.from_numpy(coord2), np.array(nzhw)
