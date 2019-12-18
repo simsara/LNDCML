@@ -148,6 +148,7 @@ def common_init(args):
     loss = loss.cuda()
     cudnn.benchmark = False
     try_resume(net, args)
+    log.info("we have %s GPUs" % torch.cuda.device_count())
     return config, net, loss, get_pbb
 
 
@@ -162,7 +163,6 @@ def run_train():
         momentum=0.9,
         weight_decay=args.weight_decay)
 
-    log.info("we have %s GPUs" % torch.cuda.device_count())
     for epoch in range(max(args.start_epoch, 1), args.epochs + 1):
         train(train_loader, net, loss, epoch, optimizer, args)
         validate(val_loader, net, loss)
