@@ -15,7 +15,7 @@ log = get_logger(__name__)
 
 
 class DataBowl3Detector(Dataset):
-    def __init__(self, data_dir, split_path, config, phase='train', split_combo=None):
+    def __init__(self, data_dir, sample_prefix_list, config, phase='train', split_combo=None):
         assert (phase == 'train' or phase == 'val' or phase == 'test')
         self.phase = phase
         self.max_stride = config['max_stride']
@@ -29,34 +29,32 @@ class DataBowl3Detector(Dataset):
         self.augtype = config['augtype']
         self.pad_value = config['pad_value']
         self.split_combo = split_combo
-        idcs = split_path
-        # if phase != 'test': # TODO
-        #     idcs = [f for f in idcs if (f not in self.blacklist)]
 
-        self.filenames = [os.path.join(data_dir, '%s_clean.npy' % idx) for idx in idcs]
-        self.kagglenames = [f for f in self.filenames]
-        labels = []
-        log.info('Total file size: %s' % len(idcs))
-        for idx in idcs:
-            lebal_file_name = os.path.join(data_dir, '%s_label.npy' % idx)
-            l = np.load(lebal_file_name, allow_pickle=True)
-            if np.all(l == 0):
-                l = np.array([])
-            labels.append(l)
+        self.img_file_names = [os.path.join(data_dir, '%s_clean.npy' % idx) for idx in sample_prefix_list]  # 处理完的图像
+        labels = []  # 按顺序的标签集
+        log.info('Total file size: %s' % len(sample_prefix_list))
+        for idx in sample_prefix_list:
+            label_file_name = os.path.join(data_dir, '%s_label.npy' % idx)  # 结节label
+            label_data = np.load(label_file_name, allow_pickle=True)
+            if np.all(label_data == 0):  # 没有结节
+                label_data = np.array([])
+            labels.append(label_data)
 
         self.sample_bboxes = labels
         if self.phase != 'test':
             self.bboxes = []
             for i, l in enumerate(labels):
-                if len(l) > 0:
-                    for t in l:
-                        if t[3] > sizelim:
-                            self.bboxes.append([np.concatenate([[i], t])])
-                        if t[3] > sizelim2:
-                            self.bboxes += [[np.concatenate([[i], t])]] * 2
-                        if t[3] > sizelim3:
-                            self.bboxes += [[np.concatenate([[i], t])]] * 4
-            self.bboxes = np.concatenate(self.bboxes, axis=0)
+                if len(l) == 0:
+                    continue
+                for t in l:
+                    label_with_no = np.concatenate([[i], t])
+                    if t[3] > sizelim:
+                        self.bboxes.append([label_with_no])
+                    if t[3] > sizelim2:
+                        self.bboxes += [[label_with_no]] * 2
+                    if t[3] > sizelim3:
+                        self.bboxes += [[label_with_no]] * 4
+            self.bboxes = np.concatenate(self.bboxes, axis=0)  # TODO 多放这么多有什么用
 
         self.crop = Crop(config)
         self.label_mapping = LabelMapping(config, self.phase)
@@ -65,70 +63,63 @@ class DataBowl3Detector(Dataset):
         t = time.time()
         np.random.seed(int(str(t % 1)[2:7]))  # seed according to time
 
-        isRandomImg = False
+        is_random_img = False
+        is_random = False
         if self.phase != 'test':
-            if idx >= len(self.bboxes):
-                isRandom = True
+            if idx >= len(self.bboxes):  # TODO 随机
+                is_random = True
                 idx = idx % len(self.bboxes)
-                isRandomImg = np.random.randint(2)
-            else:
-                isRandom = False
-        else:
-            isRandom = False
+                is_random_img = np.random.randint(2)
 
         if self.phase != 'test':
-            if not isRandomImg:
-                bbox = self.bboxes[idx]
-                filename = self.filenames[int(bbox[0])]
-                imgs = np.load(filename)
+            if not is_random_img:
+                bbox = self.bboxes[idx]  # idx, x, y, z, d
+                img_file_name = self.img_file_names[int(bbox[0])]
+                img_data = np.load(img_file_name)
                 bboxes = self.sample_bboxes[int(bbox[0])]
-                isScale = self.augtype['scale'] and (self.phase == 'train')
-                sample, target, bboxes, coord = self.crop(imgs, bbox[1:], bboxes, isScale, isRandom)
-                if self.phase == 'train' and not isRandom:
+                is_scale = self.augtype['scale'] and (self.phase == 'train')
+                sample, target, bboxes, coord = self.crop(img_data, bbox[1:], bboxes, is_scale, is_random)
+                if self.phase == 'train' and not is_random:  # 随机增强
                     sample, target, bboxes, coord = augment(sample, target, bboxes, coord,
                                                             ifflip=self.augtype['flip'],
                                                             ifrotate=self.augtype['rotate'],
                                                             ifswap=self.augtype['swap'])
             else:
-                randimid = np.random.randint(len(self.kagglenames))
-                filename = self.kagglenames[randimid]
-                imgs = np.load(filename)
-                bboxes = self.sample_bboxes[randimid]
-                isScale = self.augtype['scale'] and (self.phase == 'train')
-                sample, target, bboxes, coord = self.crop(imgs, [], bboxes, isScale=False, isRand=True)
-            # log.info sample.shape, target.shape, bboxes.shape
-            label = self.label_mapping(sample.shape[1:], target, bboxes, filename)
+                rand_idx = np.random.randint(len(self.img_file_names))
+                img_file_name = self.img_file_names[rand_idx]
+                img_data = np.load(img_file_name)
+                bboxes = self.sample_bboxes[rand_idx]
+                sample, target, bboxes, coord = self.crop(img_data, [], bboxes, is_scale=False, is_rand=True)
+            label = self.label_mapping(sample.shape[1:], target, bboxes, img_file_name)
             sample = (sample.astype(np.float32) - 128) / 128
-            # if filename in self.kagglenames and self.phase=='train':
-            #    label[label==-1]=0
             return torch.from_numpy(sample), torch.from_numpy(label), coord
         else:
-            imgs = np.load(self.filenames[idx])
+            img_data = np.load(self.img_file_names[idx])
             bboxes = self.sample_bboxes[idx]
-            nz, nh, nw = imgs.shape[1:]
+            nz, nh, nw = img_data.shape[1:]
             pz = int(np.ceil(float(nz) / self.stride)) * self.stride
             ph = int(np.ceil(float(nh) / self.stride)) * self.stride
             pw = int(np.ceil(float(nw) / self.stride)) * self.stride
-            imgs = np.pad(imgs, [[0, 0], [0, pz - nz], [0, ph - nh], [0, pw - nw]], 'constant',
-                          constant_values=self.pad_value)
+            img_data = np.pad(img_data, [[0, 0], [0, pz - nz], [0, ph - nh], [0, pw - nw]], 'constant',
+                              constant_values=self.pad_value)
 
-            xx, yy, zz = np.meshgrid(np.linspace(-0.5, 0.5, imgs.shape[1] / self.stride),
-                                     np.linspace(-0.5, 0.5, imgs.shape[2] / self.stride),
-                                     np.linspace(-0.5, 0.5, imgs.shape[3] / self.stride), indexing='ij')
+            xx, yy, zz = np.meshgrid(np.linspace(-0.5, 0.5, img_data.shape[1] / self.stride),
+                                     np.linspace(-0.5, 0.5, img_data.shape[2] / self.stride),
+                                     np.linspace(-0.5, 0.5, img_data.shape[3] / self.stride), indexing='ij')
             coord = np.concatenate([xx[np.newaxis, ...], yy[np.newaxis, ...], zz[np.newaxis, :]], 0).astype('float32')
-            imgs, nzhw = self.split_combo.split(imgs)
-            
+            img_data, nzhw = self.split_combo.split(img_data)
+
             coord2, nzhw2 = self.split_combo.split(coord,  # python3 python2
-                                                    side_len=int(self.split_combo.side_len / self.stride),
-                                                    max_stride=int(self.split_combo.max_stride / self.stride),
-                                                    margin=int(self.split_combo.margin / self.stride))
+                                                   side_len=int(self.split_combo.side_len / self.stride),
+                                                   max_stride=int(self.split_combo.max_stride / self.stride),
+                                                   margin=int(self.split_combo.margin / self.stride))
             assert np.all(nzhw == nzhw2)
-            imgs = (imgs.astype(np.float32) - 128) / 128
-            return torch.from_numpy(imgs), bboxes, torch.from_numpy(coord2), np.array(nzhw)
+            img_data = (img_data.astype(np.float32) - 128) / 128
+            return torch.from_numpy(img_data), bboxes, torch.from_numpy(coord2), np.array(nzhw)
 
     def __len__(self):
         if self.phase == 'train':
-            return math.floor(len(self.bboxes) / (1 - self.r_rand))
+            return math.floor(len(self.bboxes) / (1 - self.r_rand))  # 随机
         elif self.phase == 'val':
             return len(self.bboxes)
         else:
