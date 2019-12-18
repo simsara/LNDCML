@@ -136,6 +136,7 @@ def try_resume(net, args):
 
 
 def common_init(args):
+    gpu.set_gpu(args.gpu)
     torch.manual_seed(0)
     model = netdef.get_model(args.model)
     config, net, loss, get_pbb = model.get_model()
@@ -147,7 +148,6 @@ def common_init(args):
 
 def run_train():
     args = env.get_args()
-    gpu.set_gpu(args.gpu)
     config, net, loss, get_pbb = common_init(args)
     train_loader = get_train_loader(args, config)
     val_loader = get_val_loader(args, config)
@@ -279,10 +279,7 @@ def get_test_loader(args, net_config):
 
 def run_test():
     args = env.get_args()
-    torch.manual_seed(0)
-    gpu.set_gpu(args.gpu)
-    model = netdef.get_model(args.model)
-    config, net, loss, get_pbb = model.get_model()
+    config, net, loss, get_pbb = common_init(args)
 
     test(get_test_loader(args, config), net, get_pbb, args, config)
 
