@@ -1,5 +1,6 @@
 import os
 import time
+from collections import OrderedDict
 
 import numpy as np
 import torch
@@ -130,7 +131,11 @@ def try_resume(net, args):
     args.start_epoch = resume_epoch
     if os.path.exists(file_name):
         checkpoint = torch.load(file_name)
-        net.load_state_dict(checkpoint['state_dict'])
+        new_state_dict = OrderedDict()
+        for k, v in checkpoint['state_dict'].items():
+            name = 'module.%s' % k  # add `module.`
+            new_state_dict[name] = v
+        net.load_state_dict(new_state_dict)
     else:
         log.info('No saved file. ID: %s. Epoch: %s' % (args.id, resume_epoch))
 
