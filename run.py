@@ -8,5 +8,7 @@ if __name__ == '__main__':
         prepare.prepare_luna()
     elif args.job == 'train':
         detect.run_train()
+    elif args.job == 'test':
+        detect.run_test()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)
