@@ -54,7 +54,8 @@ class DataBowl3Detector(Dataset):
                         self.bboxes += [[label_with_no]] * 2
                     if t[3] > sizelim3:
                         self.bboxes += [[label_with_no]] * 4
-            self.bboxes = np.concatenate(self.bboxes, axis=0)  # TODO 多放这么多有什么用
+            # 大肺结节的数据量比小肺结节少很多，因此增加采样频率
+            self.bboxes = np.concatenate(self.bboxes, axis=0)
 
         self.crop = Crop(config)
         self.label_mapping = LabelMapping(config, self.phase)
@@ -64,10 +65,10 @@ class DataBowl3Detector(Dataset):
         np.random.seed(int(str(t % 1)[2:7]))  # seed according to time
 
         is_random_img = False
-        is_random = False
+        random_crop = False
         if self.phase != 'test':
-            if idx >= len(self.bboxes):  # TODO 随机
-                is_random = True
+            if idx >= len(self.bboxes):  # cropped randomly from lung scans and may not contain any nodules
+                random_crop = True
                 idx = idx % len(self.bboxes)
                 is_random_img = np.random.randint(2)
 
@@ -78,8 +79,8 @@ class DataBowl3Detector(Dataset):
                 img_data = np.load(img_file_name)
                 bboxes = self.sample_bboxes[int(bbox[0])]
                 is_scale = self.augtype['scale'] and (self.phase == 'train')
-                sample, target, bboxes, coord = self.crop(img_data, bbox[1:], bboxes, is_scale, is_random)
-                if self.phase == 'train' and not is_random:  # 随机增强
+                sample, target, bboxes, coord = self.crop(img_data, bbox[1:], bboxes, is_scale, random_crop)
+                if self.phase == 'train' and not random_crop:  # 随机增强
                     sample, target, bboxes, coord = augment(sample, target, bboxes, coord,
                                                             ifflip=self.augtype['flip'],
                                                             ifrotate=self.augtype['rotate'],

@@ -198,7 +198,7 @@ def train(data_loader, net, loss, epoch, optimizer, args):
     if epoch % save_freq == 0:
         state_dict = net.module.state_dict()
         for key in state_dict.keys():
-            state_dict[key] = state_dict[key].cpu()
+            state_dict[key] = state_dict[key].cpu()  # TODO 这个不用cpu是不是就不用读取那里做修改了
 
         torch.save({
             'epoch': epoch,
@@ -264,7 +264,7 @@ def get_test_loader(args, net_config):
     data_dir = env.get('preprocess_result_path')
 
     split_combo = SplitComb(net_config['side_len'], net_config['max_stride'], net_config['stride'],
-                             net_config['margin'], net_config['pad_value'])
+                            net_config['margin'], net_config['pad_value'])
     dataset = DataBowl3Detector(
         data_dir,
         test_files,
@@ -301,7 +301,8 @@ def test(data_loader, net, get_pbb, args, net_config):
         target = [np.asarray(t, np.float32) for t in target]
         lbb = target[0]
         nzhw = nzhw[0]
-        name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[0]  # .split('-')[0]  wentao change
+        name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[
+            0]  # .split('-')[0]  wentao change
         data = data[0][0]
         coord = coord[0][0]
         isfeat = False

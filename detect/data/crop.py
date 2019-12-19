@@ -18,7 +18,7 @@ class Crop(object):
             scale_range = [
                 np.min([np.max([(diam_lim[0] / target[3]), scale_lim[0]]), 1]),
                 np.max([np.min([(diam_lim[1] / target[3]), scale_lim[1]]), 1])
-            ]  # 直径径在规定范围内的缩放范围
+            ]  # 直径在规定范围内的缩放范围
             scale = np.random.rand() * (scale_range[1] - scale_range[0]) + scale_range[0]  # 随机缩放比例
             crop_size = (np.array(self.crop_size).astype('float') / scale).astype('int')  # 裁剪大小 d小crop大 d大crop小
         else:
@@ -29,25 +29,25 @@ class Crop(object):
 
         start = []
         for i in range(3):  # x, y, z
-            if not is_rand:  # TODO 为什么不是从中间
+            if not is_rand:  # 从结节里面剪
                 r = target[3] / 2
                 s = np.floor(target[i] - r) + 1 - bound_size
-                e = np.ceil(target[i] + r) + 1 + bound_size - crop_size[i]  # TODO 剪掉 crop_size 这么多？
-            else:
-                s = np.max([imgs.shape[i + 1] - crop_size[i] / 2, imgs.shape[i + 1] / 2 + bound_size])
-                e = np.min([crop_size[i] / 2, imgs.shape[i + 1] / 2 - bound_size])
+                e = np.ceil(target[i] + r) + 1 + bound_size - crop_size[i] # 如果s<e，说明结节直接小，crop可以包括整个结节
+            else:  # 0.3的几率在整片CT里面随机剪
+                s = np.max([imgs.shape[i + 1] - crop_size[i] / 2, imgs.shape[i + 1] / 2 + bound_size])  # 右边缘 or 中心点
+                e = np.min([crop_size[i] / 2, imgs.shape[i + 1] / 2 - bound_size])  # 左边缘 or 中心点
                 target = np.array([np.nan, np.nan, np.nan, np.nan])
-            if s > e:
-                start.append(np.random.randint(e, s))  # !
-            else:
+            if s > e:  # 0.3的情况或者0.7里面直径太小导致不满足crop_size
+                start.append(np.random.randint(e, s))  # 随机一个
+            else:  # 0.7里面直径比较大，会撑满整个crop，rand用于随机移动结节中心点，不让其完全在crop的中心
                 start.append(int(target[i]) - crop_size[i] / 2 + np.random.randint(-bound_size / 2, bound_size / 2))
 
-        normstart = np.array(start).astype('float32') / np.array(imgs.shape[1:]) - 0.5
-        normsize = np.array(crop_size).astype('float32') / np.array(imgs.shape[1:])
+        normstart = np.array(start).astype('float32') / np.array(imgs.shape[1:]) - 0.5 # 映射到 -0.5 ~ 0.5
+        normsize = np.array(crop_size).astype('float32') / np.array(imgs.shape[1:]) # 长度
         xx, yy, zz = np.meshgrid(np.linspace(normstart[0], normstart[0] + normsize[0], self.crop_size[0] / self.stride),
                                  np.linspace(normstart[1], normstart[1] + normsize[1], self.crop_size[1] / self.stride),
                                  np.linspace(normstart[2], normstart[2] + normsize[2], self.crop_size[2] / self.stride),
-                                 indexing='ij')
+                                 indexing='ij') # 3维网格
         coord = np.concatenate([xx[np.newaxis, ...], yy[np.newaxis, ...], zz[np.newaxis, :]], 0).astype('float32')
 
         pad = []
