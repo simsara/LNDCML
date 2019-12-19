@@ -122,7 +122,7 @@ class Net(nn.Module):
         comb3 = self.back3(concat3)  # size 12 channel 64
 
         rev2 = self.deconv2(comb3)  # size 24 channel 64
-        concat2 = torch.cat((rev2, out2, coord), 1)  # size 24 channel 128
+        concat2 = torch.cat((rev2, out2, coord), 1)  # size 24 channel 131
         comb2 = self.back2(concat2)  # size 24 channel 128
 
         drop2 = self.drop(comb2)  # size 24 channel 128

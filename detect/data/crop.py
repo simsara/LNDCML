@@ -61,9 +61,9 @@ class Crop(object):
                max(start[1], 0):min(start[1] + crop_size[1], imgs.shape[2]),
                max(start[2], 0):min(start[2] + crop_size[2], imgs.shape[3])]
         crop = np.pad(crop, pad, 'constant', constant_values=self.pad_value)
-        for i in range(3):
+        for i in range(3): # 根据裁剪位置调整结节坐标
             target[i] = target[i] - start[i]
-        for i in range(len(bboxes)):
+        for i in range(len(bboxes)): # 根据裁剪位置调整bbox坐标
             for j in range(3):
                 bboxes[i][j] = bboxes[i][j] - start[j]
 
@@ -72,14 +72,14 @@ class Crop(object):
                 warnings.simplefilter("ignore")
                 crop = zoom(crop, [1, scale, scale, scale], order=1)
             newpad = self.crop_size[0] - crop.shape[1:][0]
-            if newpad < 0:
+            if newpad < 0: # 放大了 剪回去
                 crop = crop[:, :-newpad, :-newpad, :-newpad]
-            elif newpad > 0:
+            elif newpad > 0: # 缩小了 填上
                 pad2 = [[0, 0], [0, newpad], [0, newpad], [0, newpad]]
                 crop = np.pad(crop, pad2, 'constant', constant_values=self.pad_value)
-            for i in range(4):
+            for i in range(4): # 坐标缩放
                 target[i] = target[i] * scale
             for i in range(len(bboxes)):
-                for j in range(4):
+                for j in range(4): # bbox 缩放
                     bboxes[i][j] = bboxes[i][j] * scale
         return crop, target, bboxes, coord
