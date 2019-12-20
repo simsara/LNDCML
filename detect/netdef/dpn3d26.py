@@ -13,7 +13,7 @@ config['anchors'] = [5., 10., 20.] #[ 10.0, 30.0, 60.]
 config['chanel'] = 1
 config['crop_size'] = [96, 96, 96]
 config['stride'] = 4
-config['max_stride'] = 16
+config['max_stride'] = 12
 config['num_neg'] = 800
 config['th_neg'] = 0.02
 config['th_pos_train'] = 0.5
@@ -28,13 +28,13 @@ config['aug_scale'] = True
 config['r_rand_crop'] = 0.3
 config['pad_value'] = 170
 config['augtype'] = {'flip':True,'swap':False,'scale':True,'rotate':False}
-config['side_len'] = 144
-config['margin'] = 32
+config['side_len'] = 72
+config['margin'] = 12
 #config['augtype'] = {'flip':True,'swap':False,'scale':True,'rotate':False}
 config['blacklist'] = ['868b024d9fa388b7ddab12ec1c06af38',
                        '990fbe3f0a1b53878669967b9afd1441',
                        'adc3bbc63d40f8761c59be10f1e504c3']
-debug = False #True #True# #True
+debug = False #True# #True
 
 class Bottleneck(nn.Module):
     def __init__(self, last_planes, in_planes, out_planes, dense_depth, stride, first_layer):

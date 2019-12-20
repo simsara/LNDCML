@@ -58,6 +58,7 @@ class SplitComb():
                     splits.append(split)
 
         splits = np.concatenate(splits, 0)
+        #print(nzhw)
         return splits,nzhw  # 返回切分好的小立方体集合和每条边的切分个数
 
     def combine(self, output, nzhw = None, side_len=None, stride=None, margin=None):
@@ -71,7 +72,7 @@ class SplitComb():
             stride = self.stride
         if margin == None:
             margin = self.margin
-        if nzhw==None:  # nxyz为坐标轴上的立方体个数
+        if nzhw.any()==None:  # nxyz为坐标轴上的立方体个数
             nz = self.nz
             nh = self.nh
             nw = self.nw
@@ -81,17 +82,20 @@ class SplitComb():
         assert(side_len % stride == 0)  # 边长是步长的整数倍
         assert(margin % stride == 0)  # 增加的边缘是步长的整数倍
 
-        side_len /= stride
-        margin /= stride
+        side_len //= stride
+        margin //= stride
 
         splits = []
         for i in range(len(output)):
             splits.append(output[i])  # 将output看成是已经切分好的小立方体
 
+        #print(type(nz*side_len))
+        #print(type(splits[0].shape[3]))
+
         output = -1000000 * np.ones((
-            nz * side_len,
-            nh * side_len,
-            nw * side_len,
+            int(nz * side_len),
+            int(nh * side_len),
+            int(nw * side_len),
             splits[0].shape[3],
             splits[0].shape[4]), np.float32)
 
@@ -105,6 +109,7 @@ class SplitComb():
                     eh = (ih + 1) * side_len
                     sw = iw * side_len
                     ew = (iw + 1) * side_len
+
 
                     split = splits[idx][margin:margin + side_len, margin:margin + side_len, margin:margin + side_len]
                     output[sz:ez, sh:eh, sw:ew] = split   # 进行还原

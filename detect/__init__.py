@@ -13,6 +13,8 @@ from detect.data.split_combo import SplitComb
 from utils import gpu, env
 from utils.log import get_logger
 
+from torch.autograd import Variable
+
 log = get_logger(__name__)
 
 
@@ -163,12 +165,12 @@ def run_train():
         momentum=0.9,
         weight_decay=args.weight_decay)
 
-    for epoch in range(max(args.start_epoch, 1), args.epochs + 1):
+    for epoch in range(max(args.start_epoch, 1), args.epochs + 1):  # 跑完所有的epoch
         train(train_loader, net, loss, epoch, optimizer, args)
         validate(val_loader, net, loss)
 
 
-def train(data_loader, net, loss, epoch, optimizer, args):
+def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
     save_freq = args.save_freq
     save_dir = get_save_dir(args)
     start_time = time.time()
@@ -193,7 +195,20 @@ def train(data_loader, net, loss, epoch, optimizer, args):
 
         loss_output[0] = loss_output[0].item()  # loss_output[0] = loss_output[0].data[0]
         metrics.append(loss_output)
-        log.info('Finish epoch [%d] file [%d]' % (epoch, i))
+        log.info('loss_output')
+
+        if(i % 1 == 0):
+            m = np.asarray(metrics, np.float32)
+            log.info('loss_output')
+            log.info('loss %2.4f, classify loss %2.4f, regress loss %2.4f, %2.4f, %2.4f, %2.4f' % (
+            np.mean(m[:, 0]),
+            np.mean(m[:, 1]),
+            np.mean(m[:, 2]),
+            np.mean(m[:, 3]),
+            np.mean(m[:, 4]),
+            np.mean(m[:, 5])))
+
+        # log.info('Finish epoch [%d] file [%d]' % (epoch, i))
 
     if epoch % save_freq == 0:
         state_dict = net.module.state_dict()
@@ -297,13 +312,23 @@ def test(data_loader, net, get_pbb, args, net_config):
     net.eval()
     namelist = []
     split_combo = data_loader.dataset.split_combo
-    for i_name, (data, target, coord, nzhw) in enumerate(data_loader):
+    for i_name, (data, target, coord, nzhw,nzhw2) in enumerate(data_loader):
+        print(111111,nzhw)  # 9 8 10
+        print(222222,nzhw2)  # 3 2 3
+        
+
         target = [np.asarray(t, np.float32) for t in target]
         lbb = target[0]
         nzhw = nzhw[0]
         name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[0]  # .split('-')[0]  wentao change
         data = data[0][0]
         coord = coord[0][0]
+        #data2 = data2[0]
+        #coord2 = coord2[0]
+
+        #print(333333,data2.shape)  # 1 300 256 332
+        #print(444444,coord2.shape) # 3 75 64 83
+
         isfeat = False
         if 'output_feature' in net_config:
             if net_config['output_feature']:
@@ -316,8 +341,12 @@ def test(data_loader, net, get_pbb, args, net_config):
         featurelist = []
 
         for i in range(len(splitlist) - 1):
-            input = data[splitlist[i]:splitlist[i + 1]].cuda()
+            #input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+            #inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+            input = data[splitlist[i]:splitlist[i + 1]]
+            input = input.type(torch.FloatTensor).cuda()
             inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
+            print(input.shape)
             if isfeat:
                 output, feature = net(input, inputcoord)
                 featurelist.append(feature.data.cpu().numpy())
@@ -331,7 +360,7 @@ def test(data_loader, net, get_pbb, args, net_config):
             feature = split_combo.combine(feature, net_config['side_len'])[..., 0]
 
         thresh = args.testthresh  # -8 #-3
-        pbb, mask = get_pbb(output, thresh, ismask=True)
+        pbb, mask = get_pbb(output, thresh, is_mask=True)
         if isfeat:
             feature_selected = feature[mask[0], mask[1], mask[2]]
             np.save(os.path.join(save_dir, name + '_feature.npy'), feature_selected)
