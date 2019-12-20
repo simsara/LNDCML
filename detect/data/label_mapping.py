@@ -48,16 +48,16 @@ class LabelMapping(object):
 
         if self.phase == 'train' and self.num_neg > 0:
             neg_z, neg_h, neg_w, neg_a = np.where(label[:, :, :, :, 0] == -1)  # 负anchor
-            neg_idcs = random.sample(range(len(neg_z)), min(num_neg, len(neg_z))) # 最多800个
+            neg_idcs = random.sample(range(len(neg_z)), min(num_neg, len(neg_z)))  # 最多800个
             neg_z, neg_h, neg_w, neg_a = neg_z[neg_idcs], neg_h[neg_idcs], neg_w[neg_idcs], neg_a[neg_idcs]
             label[:, :, :, :, 0] = 0
-            label[neg_z, neg_h, neg_w, neg_a, 0] = -1 # 置为-1
+            label[neg_z, neg_h, neg_w, neg_a, 0] = -1  # 置为-1
 
         if np.isnan(target[0]):
             return label
         iz, ih, iw, ia = [], [], [], []
         for i, anchor in enumerate(anchors):
-            iiz, iih, iiw = select_samples(target, anchor, th_pos, oz, oh, ow) #正anchor
+            iiz, iih, iiw = select_samples(target, anchor, th_pos, oz, oh, ow)  # 正anchor
             iz.append(iiz)
             ih.append(iih)
             iw.append(iiw)
@@ -67,7 +67,7 @@ class LabelMapping(object):
         iw = np.concatenate(iw, 0)
         ia = np.concatenate(ia, 0)
         flag = True
-        if len(iz) == 0:
+        if len(iz) == 0:  # 离目标最近的一个点
             pos = []
             for i in range(3):
                 pos.append(max(0, int(np.round((target[i] - offset) / stride))))
@@ -75,13 +75,13 @@ class LabelMapping(object):
             pos.append(idx)
             flag = False
         else:
-            idx = random.sample(range(len(iz)), 1)[0]
+            idx = random.sample(range(len(iz)), 1)[0]  # 随机选一个
             pos = [iz[idx], ih[idx], iw[idx], ia[idx]]
         dz = (target[0] - oz[pos[0]]) / anchors[pos[3]]
         dh = (target[1] - oh[pos[1]]) / anchors[pos[3]]
         dw = (target[2] - ow[pos[2]]) / anchors[pos[3]]
         dd = np.log(target[3] / anchors[pos[3]])
-        label[pos[0], pos[1], pos[2], pos[3], :] = [1, dz, dh, dw, dd]
+        label[pos[0], pos[1], pos[2], pos[3], :] = [1, dz, dh, dw, dd]  # 一个正标签
         return label
 
 

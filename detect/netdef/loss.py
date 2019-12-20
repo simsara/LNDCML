@@ -22,12 +22,12 @@ class Loss(nn.Module):
         output = output.view(-1, 5)  # p, x, y, z, d,
         labels = labels.view(-1, 5)
 
-        pos_idcs = labels[:, 0] > 0.5
+        pos_idcs = labels[:, 0] == 1
         pos_idcs = pos_idcs.unsqueeze(1).expand(pos_idcs.size(0), 5)
         pos_output = output[pos_idcs].view(-1, 5)
         pos_labels = labels[pos_idcs].view(-1, 5)
 
-        neg_idcs = labels[:, 0] < -0.5  # ???
+        neg_idcs = labels[:, 0] == -1  #
         neg_output = output[:, 0][neg_idcs]
         neg_labels = labels[:, 0][neg_idcs]
 

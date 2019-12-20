@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 from collections import OrderedDict
 
@@ -119,7 +120,7 @@ def try_resume(net, args):
     args.start_epoch = 1  # 定义开始的epoch
     save_dir = get_save_dir(args)
     if args.resume == 0:
-        os.removedirs(save_dir)  # 不继续 将之前的记录删掉
+        shutil.rmtree(save_dir, True)  # 不继续 将之前的记录删掉
         return
     resume_epoch = args.resume_epoch
     if resume_epoch == -1:
@@ -183,9 +184,9 @@ def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
     metrics = []
 
     for i, (data, target, coord) in enumerate(data_loader):
-        data = data.cuda()
-        target = target.cuda()
-        coord = coord.cuda()
+        data = Variable(data.cuda())
+        target = Variable(target.cuda())
+        coord = Variable(coord.cuda())
 
         output = net(data, coord)
         loss_output = loss(output, target)
@@ -194,26 +195,17 @@ def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
         optimizer.step()
 
         loss_output[0] = loss_output[0].item()  # loss_output[0] = loss_output[0].data[0]
-        metrics.append(loss_output)
-        log.info('loss_output')
 
-        if(i % 1 == 0):
-            m = np.asarray(metrics, np.float32)
-            log.info('loss_output')
-            log.info('loss %2.4f, classify loss %2.4f, regress loss %2.4f, %2.4f, %2.4f, %2.4f' % (
-            np.mean(m[:, 0]),
-            np.mean(m[:, 1]),
-            np.mean(m[:, 2]),
-            np.mean(m[:, 3]),
-            np.mean(m[:, 4]),
-            np.mean(m[:, 5])))
+        if i % 10 == 0:
+            log.info('Loss_output. File index [%d] loss %2.4f, classify loss %2.4f, regress loss %2.4f, %2.4f, %2.4f, %2.4f' %
+                     (i, loss_output[0], loss_output[1], loss_output[2], loss_output[3], loss_output[4], loss_output[5]))
 
-        # log.info('Finish epoch [%d] file [%d]' % (epoch, i))
+        log.info('Finish epoch [%d] file [%d]' % (epoch, i))
 
     if epoch % save_freq == 0:
         state_dict = net.module.state_dict()
         for key in state_dict.keys():
-            state_dict[key] = state_dict[key].cpu()  # TODO 这个不用cpu是不是就不用读取那里做修改了
+            state_dict[key] = state_dict[key].cpu()
 
         torch.save({
             'epoch': epoch,
@@ -247,9 +239,9 @@ def validate(data_loader, net, loss):
     net.eval()
     metrics = []
     for i, (data, target, coord) in enumerate(data_loader):
-        data = data.cuda()
-        target = target.cuda()
-        coord = coord.cuda()
+        data = Variable(data.cuda(), volatile=True)
+        target = Variable(target.cuda(), volatile=True)
+        coord = Variable(coord.cuda(), volatile=True)
 
         output = net(data, coord)
         loss_output = loss(output, target, train=False)
@@ -312,22 +304,22 @@ def test(data_loader, net, get_pbb, args, net_config):
     net.eval()
     namelist = []
     split_combo = data_loader.dataset.split_combo
-    for i_name, (data, target, coord, nzhw,nzhw2) in enumerate(data_loader):
-        print(111111,nzhw)  # 9 8 10
-        print(222222,nzhw2)  # 3 2 3
-        
+    for i_name, (data, target, coord, nzhw, nzhw2) in enumerate(data_loader):
+        print(111111, nzhw)  # 9 8 10
+        print(222222, nzhw2)  # 3 2 3
 
         target = [np.asarray(t, np.float32) for t in target]
         lbb = target[0]
         nzhw = nzhw[0]
-        name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[0]  # .split('-')[0]  wentao change
+        name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[
+            0]  # .split('-')[0]  wentao change
         data = data[0][0]
         coord = coord[0][0]
-        #data2 = data2[0]
-        #coord2 = coord2[0]
+        # data2 = data2[0]
+        # coord2 = coord2[0]
 
-        #print(333333,data2.shape)  # 1 300 256 332
-        #print(444444,coord2.shape) # 3 75 64 83
+        # print(333333,data2.shape)  # 1 300 256 332
+        # print(444444,coord2.shape) # 3 75 64 83
 
         isfeat = False
         if 'output_feature' in net_config:
@@ -341,8 +333,8 @@ def test(data_loader, net, get_pbb, args, net_config):
         featurelist = []
 
         for i in range(len(splitlist) - 1):
-            #input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
-            #inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+            # input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+            # inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
             input = data[splitlist[i]:splitlist[i + 1]]
             input = input.type(torch.FloatTensor).cuda()
             inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
