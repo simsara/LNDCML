@@ -47,17 +47,17 @@ class LabelMapping(object):
                 label[iz, ih, iw, i, 0] = 0  # p=0
 
         if self.phase == 'train' and self.num_neg > 0:
-            neg_z, neg_h, neg_w, neg_a = np.where(label[:, :, :, :, 0] == -1)
-            neg_idcs = random.sample(range(len(neg_z)), min(num_neg, len(neg_z)))
+            neg_z, neg_h, neg_w, neg_a = np.where(label[:, :, :, :, 0] == -1)  # 负anchor
+            neg_idcs = random.sample(range(len(neg_z)), min(num_neg, len(neg_z))) # 最多800个
             neg_z, neg_h, neg_w, neg_a = neg_z[neg_idcs], neg_h[neg_idcs], neg_w[neg_idcs], neg_a[neg_idcs]
             label[:, :, :, :, 0] = 0
-            label[neg_z, neg_h, neg_w, neg_a, 0] = -1
+            label[neg_z, neg_h, neg_w, neg_a, 0] = -1 # 置为-1
 
         if np.isnan(target[0]):
             return label
         iz, ih, iw, ia = [], [], [], []
         for i, anchor in enumerate(anchors):
-            iiz, iih, iiw = select_samples(target, anchor, th_pos, oz, oh, ow)
+            iiz, iih, iiw = select_samples(target, anchor, th_pos, oz, oh, ow) #正anchor
             iz.append(iiz)
             ih.append(iih)
             iw.append(iiw)

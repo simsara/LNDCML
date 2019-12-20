@@ -90,7 +90,7 @@ class DataBowl3Detector(Dataset):
                 img_file_name = self.img_file_names[rand_idx]
                 img_data = np.load(img_file_name)
                 bboxes = self.sample_bboxes[rand_idx]
-                sample, target, bboxes, coord = self.crop(img_data, [], bboxes, is_scale=False, random_crop=True)
+                sample, target, bboxes, coord = self.crop(img_data, [], bboxes, is_scale=False, is_rand=True)
             label = self.label_mapping(sample.shape[1:], target, bboxes, img_file_name)
             sample = (sample.astype(np.float32) - 128) / 128
             return torch.from_numpy(sample), torch.from_numpy(label), coord

@@ -31,7 +31,7 @@ parser.add_argument('--gpu', default='all', type=str, metavar='N',
                     help='use gpu')
 parser.add_argument('--n_test', default=4, type=int, metavar='N',
                     help='number of gpu for test')
-parser.add_argument('--nd-train', default=8, type=int, metavar='N',
+parser.add_argument('--nd-train', default=9, type=int, metavar='N',
                     help='用多少个文件夹训练')
 parser.add_argument('--nd-test', default=1, type=int, metavar='N',
                     help='用多少个文件夹测试')
