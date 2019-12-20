@@ -10,9 +10,9 @@ from matplotlib.ticker import ScalarFormatter, LogFormatter, StrMethodFormatter,
 import sklearn.metrics as skl_metrics
 import numpy as np
 
-from NoduleFinding import NoduleFinding
+from evaluation.NoduleFinding import NoduleFinding
 
-from tools import csvTools
+from tools import *
 
 # matplotlib.rc('xtick', labelsize=18)
 # matplotlib.rc('ytick', labelsize=18)
@@ -175,7 +175,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
     nodOutputfile.write((60 * "*") + "\n")
     nodOutputfile.write("\n")
 
-    results = csvTools.readCSV(results_filename)  # 读取检测结果的csv文件，id,x,y,z,p
+    results = readCSV(results_filename)  # 读取检测结果的csv文件，id,x,y,z,p
 
     allCandsCAD = {}
 
@@ -527,9 +527,9 @@ def collectNoduleAnnotations(annotations, annotations_excluded, seriesUIDs):
 
 
 def collect(annotations_filename, annotations_excluded_filename, seriesuids_filename):
-    annotations = csvTools.readCSV(annotations_filename)
-    annotations_excluded = csvTools.readCSV(annotations_excluded_filename)
-    seriesUIDs_csv = csvTools.readCSV(seriesuids_filename)
+    annotations = readCSV(annotations_filename)
+    annotations_excluded = readCSV(annotations_excluded_filename)
+    seriesUIDs_csv = readCSV(seriesuids_filename)
 
     seriesUIDs = []  # 建立一个用户列表，将用户id添加进去
     for seriesUID in seriesUIDs_csv:
