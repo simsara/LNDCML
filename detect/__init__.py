@@ -195,6 +195,7 @@ def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
         optimizer.step()
 
         loss_output[0] = loss_output[0].item()  # loss_output[0] = loss_output[0].data[0]
+        metrics.append(loss_output)
 
         if i % 10 == 0:
             log.info('Loss_output. File index [%d] loss %2.4f, classify loss %2.4f, regress loss %2.4f, %2.4f, %2.4f, %2.4f' %
