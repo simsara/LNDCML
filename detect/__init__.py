@@ -320,8 +320,7 @@ def test(data_loader, net, get_pbb, args, net_config):
         target = [np.asarray(t, np.float32) for t in target]
         lbb = target[0]
         nzhw = nzhw[0]
-        name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[
-            0]  # .split('-')[0]  wentao change
+        name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[0]  # .split('-')[0]  wentao change
         data = data[0][0]
         coord = coord[0][0]
         #data2 = data2[0]

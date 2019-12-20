@@ -28,24 +28,23 @@ class LabelMapping(object):
         th_pos = self.th_pos
 
         output_size = []
-        for i in range(3):
+        for i in range(3):  # x,y,z 24,24,24
             if input_size[i] % stride != 0:
                 err_msg = 'Output size doesnt fit stride [%s]' % filename
                 log.info(err_msg)
                 raise ValueError(err_msg)
-            # assert(input_size[i] % stride == 0)
             output_size.append(math.floor(input_size[i] / stride))
 
-        label = -1 * np.ones(output_size + [len(anchors), 5], np.float32)
-        offset = ((stride.astype('float')) - 1) / 2
-        oz = np.arange(offset, offset + stride * (output_size[0] - 1) + 1, stride)
+        label = -1 * np.ones(output_size + [len(anchors), 5], np.float32)  # 24*24*24*3*5 -1
+        offset = ((stride.astype('float')) - 1) / 2  # 1.5
+        oz = np.arange(offset, offset + stride * (output_size[0] - 1) + 1, stride)  # 1.5, 93.5, 4
         oh = np.arange(offset, offset + stride * (output_size[1] - 1) + 1, stride)
         ow = np.arange(offset, offset + stride * (output_size[2] - 1) + 1, stride)
 
         for bbox in bboxes:
             for i, anchor in enumerate(anchors):
-                iz, ih, iw = select_samples(bbox, anchor, th_neg, oz, oh, ow)
-                label[iz, ih, iw, i, 0] = 0
+                iz, ih, iw = select_samples(bbox, anchor, th_neg, oz, oh, ow)  # 选择iou大于0.02的框
+                label[iz, ih, iw, i, 0] = 0  # p=0
 
         if self.phase == 'train' and self.num_neg > 0:
             neg_z, neg_h, neg_w, neg_a = np.where(label[:, :, :, :, 0] == -1)
@@ -86,8 +85,9 @@ class LabelMapping(object):
         return label
 
 
+# 选择iou > th的框
 def select_samples(bbox, anchor, th, oz, oh, ow):
-    z, h, w, d = bbox
+    z, h, w, d = bbox  # 一个结节
     max_overlap = min(d, anchor)
     min_overlap = np.power(max(d, anchor), 3) * th / max_overlap / max_overlap
     if min_overlap > max_overlap:

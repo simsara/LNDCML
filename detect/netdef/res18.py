@@ -27,8 +27,6 @@ config['pad_value'] = 170
 config['augtype'] = {'flip': True, 'swap': False, 'scale': True, 'rotate': False}
 config['side_len'] = 144
 config['margin'] = 32
-
-config['augtype'] = {'flip': True, 'swap': False, 'scale': True, 'rotate': False}
 config['blacklist'] = ['868b024d9fa388b7ddab12ec1c06af38', '990fbe3f0a1b53878669967b9afd1441',
                        'adc3bbc63d40f8761c59be10f1e504c3']
 

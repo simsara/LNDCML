@@ -67,7 +67,7 @@ class DataBowl3Detector(Dataset):
         is_random_img = False
         random_crop = False
         if self.phase != 'test':
-            if idx >= len(self.bboxes):  # cropped randomly from lung scans and may not contain any nodules
+            if idx >= len(self.bboxes):  # 整张CT里面随机剪 可能没有结节
                 random_crop = True
                 idx = idx % len(self.bboxes)
                 is_random_img = np.random.randint(2)
@@ -90,7 +90,7 @@ class DataBowl3Detector(Dataset):
                 img_file_name = self.img_file_names[rand_idx]
                 img_data = np.load(img_file_name)
                 bboxes = self.sample_bboxes[rand_idx]
-                sample, target, bboxes, coord = self.crop(img_data, [], bboxes, is_scale=False, is_rand=True)
+                sample, target, bboxes, coord = self.crop(img_data, [], bboxes, is_scale=False, random_crop=True)
             label = self.label_mapping(sample.shape[1:], target, bboxes, img_file_name)
             sample = (sample.astype(np.float32) - 128) / 128
             return torch.from_numpy(sample), torch.from_numpy(label), coord
