@@ -1,7 +1,7 @@
 import os
 
 import SimpleITK as SimpleITK
-import matplotlib.pyplot as plt
+
 import numpy as np
 import pandas
 from scipy.ndimage.interpolation import zoom
@@ -11,33 +11,9 @@ from skimage.morphology import convex_hull_image
 from utils import env, threadpool
 from utils.log import get_logger
 
+from tools import *
+
 log = get_logger(__name__)
-
-
-def show_image(numpy_image):
-    image = np.squeeze(numpy_image[0, ...])
-    plt.imshow(image, cmap='gray')
-    plt.show()
-
-
-def load_itk_image(filename):
-    with open(filename) as f:  # auto close
-        contents = f.readlines()
-        line = [k for k in contents if k.startswith('TransformMatrix')][0]
-        transform_m = np.array(line.split(' = ')[1].split(' ')).astype('float')
-        transform_m = np.round(transform_m)
-        if np.any(transform_m != np.array([1, 0, 0, 0, 1, 0, 0, 0, 1])):
-            is_flip = True
-        else:
-            is_flip = False
-
-    itk_image = SimpleITK.ReadImage(filename)
-    numpy_image = SimpleITK.GetArrayFromImage(itk_image)
-
-    numpy_origin = np.array(list(reversed(itk_image.GetOrigin())))  # CT原点坐标
-    numpy_spacing = np.array(list(reversed(itk_image.GetSpacing())))  # CT像素间隔
-
-    return numpy_image, numpy_origin, numpy_spacing, is_flip
 
 
 def process_mask(mask):
@@ -64,7 +40,6 @@ def lum_trans(img):
     new_img = (new_img * 255).astype('uint8')
     return new_img
 
-
 def resample(imgs, spacing, new_spacing, order=2):
     if len(imgs.shape) == 3:
         new_shape = np.round(imgs.shape * spacing / new_spacing)
@@ -83,12 +58,6 @@ def resample(imgs, spacing, new_spacing, order=2):
         return newimg, true_spacing
     else:
         raise ValueError('wrong shape')
-
-
-def world_to_voxel(world_coord, origin, spacing):
-    stretched_voxel_coord = np.absolute(world_coord - origin)
-    voxel_coord = stretched_voxel_coord / spacing
-    return voxel_coord
 
 
 def save_file(file_name, data):
