@@ -239,16 +239,17 @@ def validate(data_loader, net, loss):
     start_time = time.time()
     net.eval()
     metrics = []
-    for i, (data, target, coord) in enumerate(data_loader):
-        data = Variable(data.cuda(), volatile=True)
-        target = Variable(target.cuda(), volatile=True)
-        coord = Variable(coord.cuda(), volatile=True)
+    with torch.no_grad():
+        for i, (data, target, coord) in enumerate(data_loader):
+            data = Variable(data.cuda())
+            target = Variable(target.cuda())
+            coord = Variable(coord.cuda())
 
-        output = net(data, coord)
-        loss_output = loss(output, target, train=False)
+            output = net(data, coord)
+            loss_output = loss(output, target, train=False)
 
-        loss_output[0] = loss_output[0].item()  # loss_output[0] = loss_output[0].data[0]
-        metrics.append(loss_output)
+            loss_output[0] = loss_output[0].item()  # loss_output[0] = loss_output[0].data[0]
+            metrics.append(loss_output)
     end_time = time.time()
 
     metrics = np.asarray(metrics, np.float32)
@@ -293,7 +294,6 @@ def get_test_loader(args, net_config):
 def run_test():
     args = env.get_args()
     config, net, loss, get_pbb = common_init(args)
-
     test(get_test_loader(args, config), net, get_pbb, args, config)
 
 
@@ -305,61 +305,62 @@ def test(data_loader, net, get_pbb, args, net_config):
     net.eval()
     namelist = []
     split_combo = data_loader.dataset.split_combo
-    for i_name, (data, target, coord, nzhw, nzhw2) in enumerate(data_loader):
-        print(111111, nzhw)  # 9 8 10
-        print(222222, nzhw2)  # 3 2 3
+    with torch.no_grad():
+        for i_name, (data, target, coord, nzhw, nzhw2) in enumerate(data_loader):
+            print(111111, nzhw)  # 9 8 10
+            print(222222, nzhw2)  # 3 2 3
 
-        target = [np.asarray(t, np.float32) for t in target]
-        lbb = target[0]
-        nzhw = nzhw[0]
-        name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[
-            0]  # .split('-')[0]  wentao change
-        data = data[0][0]
-        coord = coord[0][0]
-        # data2 = data2[0]
-        # coord2 = coord2[0]
+            target = [np.asarray(t, np.float32) for t in target]
+            lbb = target[0]
+            nzhw = nzhw[0]
+            name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[
+                0]  # .split('-')[0]  wentao change
+            data = data[0][0]
+            coord = coord[0][0]
+            # data2 = data2[0]
+            # coord2 = coord2[0]
 
-        # print(333333,data2.shape)  # 1 300 256 332
-        # print(444444,coord2.shape) # 3 75 64 83
+            # print(333333,data2.shape)  # 1 300 256 332
+            # print(444444,coord2.shape) # 3 75 64 83
 
-        isfeat = False
-        if 'output_feature' in net_config:
-            if net_config['output_feature']:
-                isfeat = True
-        n_per_run = args.n_test
-        splitlist = list(range(0, len(data) + 1, n_per_run))  # python23 range
-        if splitlist[-1] != len(data):
-            splitlist.append(len(data))
-        outputlist = []
-        featurelist = []
+            isfeat = False
+            if 'output_feature' in net_config:
+                if net_config['output_feature']:
+                    isfeat = True
+            n_per_run = args.n_test
+            splitlist = list(range(0, len(data) + 1, n_per_run))  # python23 range
+            if splitlist[-1] != len(data):
+                splitlist.append(len(data))
+            outputlist = []
+            featurelist = []
 
-        for i in range(len(splitlist) - 1):
-            # input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
-            # inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
-            input = data[splitlist[i]:splitlist[i + 1]]
-            input = input.type(torch.FloatTensor).cuda()
-            inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
-            print(input.shape)
+            for i in range(len(splitlist) - 1):
+                # input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+                # inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+                input = data[splitlist[i]:splitlist[i + 1]]
+                input = input.type(torch.FloatTensor).cuda()
+                inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
+                print(input.shape)
+                if isfeat:
+                    output, feature = net(input, inputcoord)
+                    featurelist.append(feature.data.cpu().numpy())
+                else:
+                    output = net(input, inputcoord)
+                outputlist.append(output.data.cpu().numpy())
+            output = np.concatenate(outputlist, 0)
+            output = split_combo.combine(output, nzhw=nzhw)
             if isfeat:
-                output, feature = net(input, inputcoord)
-                featurelist.append(feature.data.cpu().numpy())
-            else:
-                output = net(input, inputcoord)
-            outputlist.append(output.data.cpu().numpy())
-        output = np.concatenate(outputlist, 0)
-        output = split_combo.combine(output, nzhw=nzhw)
-        if isfeat:
-            feature = np.concatenate(featurelist, 0).transpose([0, 2, 3, 4, 1])[:, :, :, :, :, np.newaxis]
-            feature = split_combo.combine(feature, net_config['side_len'])[..., 0]
+                feature = np.concatenate(featurelist, 0).transpose([0, 2, 3, 4, 1])[:, :, :, :, :, np.newaxis]
+                feature = split_combo.combine(feature, net_config['side_len'])[..., 0]
 
-        thresh = args.testthresh  # -8 #-3
-        pbb, mask = get_pbb(output, thresh, is_mask=True)
-        if isfeat:
-            feature_selected = feature[mask[0], mask[1], mask[2]]
-            np.save(os.path.join(save_dir, name + '_feature.npy'), feature_selected)
-        np.save(os.path.join(save_dir, name + '_pbb.npy'), pbb)
-        np.save(os.path.join(save_dir, name + '_lbb.npy'), lbb)
-    np.save(os.path.join(save_dir, 'namelist.npy'), namelist)
+            thresh = args.testthresh  # -8 #-3
+            pbb, mask = get_pbb(output, thresh, is_mask=True)
+            if isfeat:
+                feature_selected = feature[mask[0], mask[1], mask[2]]
+                np.save(os.path.join(save_dir, name + '_feature.npy'), feature_selected)
+            np.save(os.path.join(save_dir, name + '_pbb.npy'), pbb)
+            np.save(os.path.join(save_dir, name + '_lbb.npy'), lbb)
+        np.save(os.path.join(save_dir, 'namelist.npy'), namelist)
 
 
 if __name__ == '__main__':
