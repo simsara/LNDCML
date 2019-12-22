@@ -211,13 +211,6 @@ def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
 
         metrics.append(normal_lost_list(loss_output))
 
-        if i % 10 == 0:
-            log.info(
-                'Loss_output. File index [%d] loss %2.4f, classify loss %2.4f, regress loss %2.4f, %2.4f, %2.4f, %2.4f' %
-                (i, loss_output[0], loss_output[1], loss_output[2], loss_output[3], loss_output[4], loss_output[5]))
-
-        log.info('Finish epoch [%d] file [%d]' % (epoch, i))
-
     if epoch % save_freq == 0:
         state_dict = net.module.state_dict()
         for key in state_dict.keys():
