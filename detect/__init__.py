@@ -121,6 +121,7 @@ def try_resume(net, args):
     save_dir = get_save_dir(args)
     if args.job == 'test':  # test情况总是读取模型
         args.resume = 1
+    args.start_epoch = 0
     if args.resume == 0:
         shutil.rmtree(save_dir, True)  # 不继续 将之前的记录删掉
         return
@@ -135,8 +136,7 @@ def try_resume(net, args):
     file_name = get_save_file_name(save_dir, resume_epoch)
     args.start_epoch = resume_epoch
     if os.path.exists(file_name):
-        print('我们使用的模型是 ：')
-        print(file_name)
+        log.info('Resuming model from: %s' % file_name)
         checkpoint = torch.load(file_name)
         new_state_dict = OrderedDict()
         for k, v in checkpoint['state_dict'].items():
@@ -175,6 +175,15 @@ def run_train():
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
         train(train_loader, net, loss, epoch, optimizer, args)
         validate(val_loader, net, loss)
+
+
+def run_validate():
+    args = env.get_args()
+    config, net, loss, get_pbb = common_init(args)
+    args.nd_train = 0
+    args.nd_test = 10
+    val_loader = get_val_loader(args, config)
+    validate(val_loader, net, loss)
 
 
 def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
@@ -258,7 +267,7 @@ def validate(data_loader, net, loss):
     end_time = time.time()
 
     metrics = np.asarray(metrics, np.float32)
-    log.info('Validation: tpr %3.2f, tnr %3.8f, total pos %d, total neg %d, time %3.2f' % (
+    log.info('Validation: tpr %3.2f, tnr %3.2f, total pos %d, total neg %d, time %3.2f' % (
         100.0 * np.sum(metrics[:, 6]) / np.sum(metrics[:, 7]),
         100.0 * np.sum(metrics[:, 8]) / np.sum(metrics[:, 9]),
         np.sum(metrics[:, 7]),

@@ -23,6 +23,7 @@ class Crop(object):
             crop_size = (np.array(self.crop_size).astype('float') / scale).astype('int')  # 裁剪大小 d小crop大 d大crop小
         else:
             crop_size = self.crop_size
+
         bound_size = self.bound_size
         target = np.copy(target)  # 目标结节
         bboxes = np.copy(bboxes)  # 该CT所有结节

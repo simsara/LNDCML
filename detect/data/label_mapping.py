@@ -66,14 +66,12 @@ class LabelMapping(object):
         ih = np.concatenate(ih, 0)
         iw = np.concatenate(iw, 0)
         ia = np.concatenate(ia, 0)
-        flag = True
         if len(iz) == 0:  # 离目标最近的一个点
             pos = []
             for i in range(3):
                 pos.append(max(0, int(np.round((target[i] - offset) / stride))))
             idx = np.argmin(np.abs(np.log(target[3] / anchors)))
             pos.append(idx)
-            flag = False
         else:
             idx = random.sample(range(len(iz)), 1)[0]  # 随机选一个
             pos = [iz[idx], ih[idx], iw[idx], ia[idx]]
@@ -141,11 +139,6 @@ def select_samples(bbox, anchor, th, oz, oh, ow):
         iou = intersection / union
 
         mask = iou >= th
-        # if th > 0.4:
-        #   if np.sum(mask) == 0:
-        #      log.info(['iou not large', iou.max()])
-        # else:
-        #    log.info(['iou large', iou[mask]])
         iz = iz[mask]
         ih = ih[mask]
         iw = iw[mask]

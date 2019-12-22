@@ -133,7 +133,6 @@ class DataBowl3Detector(Dataset):
 
 
 def augment(sample, target, bboxes, coord, ifflip=True, ifrotate=True, ifswap=True):
-    #                     angle1 = np.random.rand()*180
     if ifrotate:
         validrot = False
         counter = 0

@@ -10,5 +10,7 @@ if __name__ == '__main__':
         detect.run_train()
     elif args.job == 'test':
         detect.run_test()
+    elif args.job == 'val':
+        detect.run_validate()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)
