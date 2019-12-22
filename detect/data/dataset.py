@@ -120,7 +120,7 @@ class DataBowl3Detector(Dataset):
 
             #print(nzhw2)
             #assert np.all(nzhw == nzhw2)
-            img_data = (img_data.astype(np.float32) - 128) / 128  # [0,256] -> [-1,1]
+            img_data2 = (img_data2.astype(np.float32) - 128) / 128  # [0,256] -> [-1,1]
             return torch.from_numpy(img_data2), bboxes, torch.from_numpy(coord2), np.array(nzhw),np.array(nzhw2)#,np.array(coord),np.array(img_data)
 
     def __len__(self):

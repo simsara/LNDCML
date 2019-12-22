@@ -119,6 +119,8 @@ def get_save_file_name(save_dir, epoch):
 def try_resume(net, args):
     args.start_epoch = 1  # 定义开始的epoch
     save_dir = get_save_dir(args)
+    if args.job == 'test':  # test情况总是读取模型
+        args.resume = 1
     if args.resume == 0:
         shutil.rmtree(save_dir, True)  # 不继续 将之前的记录删掉
         return
@@ -139,10 +141,10 @@ def try_resume(net, args):
         new_state_dict = OrderedDict()
         for k, v in checkpoint['state_dict'].items():
             name = 'module.%s' % k  # add `module.`
-            #print(name)
+            # print(name)
             new_state_dict[name] = v
         net.load_state_dict(new_state_dict)
-        #print(new_state_dict[name])
+        # print(new_state_dict[name])
     else:
         log.info('No saved file. ID: %s. Epoch: %s' % (args.id, resume_epoch))
 
@@ -170,7 +172,7 @@ def run_train():
         momentum=0.9,
         weight_decay=args.weight_decay)
 
-    for epoch in range(max(args.start_epoch, 1), args.epochs + 1):  # 跑完所有的epoch
+    for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
         train(train_loader, net, loss, epoch, optimizer, args)
         validate(val_loader, net, loss)
 
@@ -198,12 +200,12 @@ def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
         loss_output[0].backward()
         optimizer.step()
 
-        loss_output[0] = loss_output[0].item()  # loss_output[0] = loss_output[0].data[0]
-        metrics.append(loss_output)
+        metrics.append(normal_lost_list(loss_output))
 
         if i % 10 == 0:
-            log.info('Loss_output. File index [%d] loss %2.4f, classify loss %2.4f, regress loss %2.4f, %2.4f, %2.4f, %2.4f' %
-                     (i, loss_output[0], loss_output[1], loss_output[2], loss_output[3], loss_output[4], loss_output[5]))
+            log.info(
+                'Loss_output. File index [%d] loss %2.4f, classify loss %2.4f, regress loss %2.4f, %2.4f, %2.4f, %2.4f' %
+                (i, loss_output[0], loss_output[1], loss_output[2], loss_output[3], loss_output[4], loss_output[5]))
 
         log.info('Finish epoch [%d] file [%d]' % (epoch, i))
 
@@ -252,8 +254,7 @@ def validate(data_loader, net, loss):
             output = net(data, coord)
             loss_output = loss(output, target, train=False)
 
-            loss_output[0] = loss_output[0].item()  # loss_output[0] = loss_output[0].data[0]
-            metrics.append(loss_output)
+            metrics.append(normal_lost_list(loss_output))
     end_time = time.time()
 
     metrics = np.asarray(metrics, np.float32)
@@ -274,10 +275,10 @@ def validate(data_loader, net, loss):
 
 def get_test_loader(args, net_config):
     train_files, test_files = get_file_list(args)
-    #print('------train-----')
-    #print(train_files[:][0:10])
-    #print('------test-----')
-    #print(test_files)
+    # print('------train-----')
+    # print(train_files[:][0:10])
+    # print('------test-----')
+    # print(test_files)
     data_dir = env.get('preprocess_result_path')
 
     split_combo = SplitComb(net_config['side_len'], net_config['max_stride'], net_config['stride'],
@@ -315,14 +316,13 @@ def test(data_loader, net, get_pbb, args, net_config):
     split_combo = data_loader.dataset.split_combo
     with torch.no_grad():
         for i_name, (data, target, coord, nzhw, nzhw2) in enumerate(data_loader):
-            #print(111111, nzhw)  # 9 8 10
-            #print(222222, nzhw2)  # 3 2 3
+            # print(111111, nzhw)  # 9 8 10
+            # print(222222, nzhw2)  # 3 2 3
 
             target = [np.asarray(t, np.float32) for t in target]
             lbb = target[0]
             nzhw = nzhw[0]
-            name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[
-                0]  # .split('-')[0]  wentao change
+            name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[0]
             data = data[0][0]
             coord = coord[0][0]
             # data2 = data2[0]
@@ -335,7 +335,7 @@ def test(data_loader, net, get_pbb, args, net_config):
             if 'output_feature' in net_config:
                 if net_config['output_feature']:
                     isfeat = True
-            n_per_run = args.n_test
+            n_per_run = args.gpu_test
             splitlist = list(range(0, len(data) + 1, n_per_run))  # python23 range
             if splitlist[-1] != len(data):
                 splitlist.append(len(data))
@@ -345,11 +345,11 @@ def test(data_loader, net, get_pbb, args, net_config):
             for i in range(len(splitlist) - 1):
                 input = data[splitlist[i]:splitlist[i + 1]]
                 input = Variable(input.type(torch.FloatTensor)).cuda()
-                inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]]).cuda()
-                #input = data[splitlist[i]:splitlist[i + 1]]
-                #input = input.type(torch.FloatTensor).cuda()
-                #inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
-                #print(input.shape)
+                inputcoord = Variable(coord[splitlist[i]:splitlist[i + 1]]).cuda()
+                # input = data[splitlist[i]:splitlist[i + 1]]
+                # input = input.type(torch.FloatTensor).cuda()
+                # inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
+                # print(input.shape)
                 if isfeat:
                     output, feature = net(input, inputcoord)
                     featurelist.append(feature.data.cpu().numpy())
@@ -363,7 +363,7 @@ def test(data_loader, net, get_pbb, args, net_config):
                 feature = split_combo.combine(feature, net_config['side_len'])[..., 0]
 
             thresh = args.testthresh  # -8 #-3
-            #print(output)
+            # print(output)
             print('output : ')
             print(output.shape)
             print('thresh : ')
@@ -379,6 +379,13 @@ def test(data_loader, net, get_pbb, args, net_config):
             np.save(os.path.join(save_dir, name + '_pbb.npy'), pbb)
             np.save(os.path.join(save_dir, name + '_lbb.npy'), lbb)
         np.save(os.path.join(save_dir, 'namelist.npy'), namelist)
+
+
+def normal_lost_list(tensor_list):
+    normal = []
+    for i in tensor_list:
+        normal.append(i.item() if isinstance(i, torch.Tensor) else i)
+    return normal
 
 
 if __name__ == '__main__':
