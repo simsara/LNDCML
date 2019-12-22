@@ -10,7 +10,7 @@ from matplotlib.ticker import ScalarFormatter, LogFormatter, StrMethodFormatter,
 import sklearn.metrics as skl_metrics
 import numpy as np
 
-from evaluation.NoduleFinding import NoduleFinding
+from NoduleFinding import NoduleFinding
 
 from tools import *
 
@@ -136,12 +136,17 @@ def computeFROC(FROCGTList, FROCProbList, totalNumberOfImages, excludeList):
 
     for i in range(len(excludeList)):  # 无关结节不纳入计算
         if excludeList[i] == False:
+            #print(1111111111111111111, FROCGTList[i])
+            #print(2222222222222222222, FROCProbList[i])
             FROCGTList_local.append(FROCGTList[i])
             FROCProbList_local.append(FROCProbList[i])
 
     numberOfDetectedLesions = sum(FROCGTList_local)  # 检测正确的结节数
     totalNumberOfLesions = sum(FROCGTList)  # 实际注释的结节数
     totalNumberOfCandidates = len(FROCProbList_local)  # 候选结节的数目
+
+    #print(1111111111111111111,FROCGTList_local)
+    #print(2222222222222222222,FROCProbList_local)
 
     fpr, tpr, thresholds = skl_metrics.roc_curve(FROCGTList_local, FROCProbList_local)
 
@@ -175,25 +180,37 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
     nodOutputfile.write((60 * "*") + "\n")
     nodOutputfile.write("\n")
 
+    print('表头打印完毕')
+    #print(len(seriesUIDs))
+    print('results_filename : ')
+    print(results_filename)
+
     results = readCSV(results_filename)  # 读取检测结果的csv文件，id,x,y,z,p
 
     allCandsCAD = {}
+    #print('seriesuid : ' + str(len(seriesUIDs))) # list 888
+    k = 0
 
     for seriesuid in seriesUIDs:  # 对每个病例读取相应的候选结节
 
+        #print(seriesuid)
+
         # collect candidates from result file
         nodules = {}
-        header = results[0]
+        header = results[0] # ['seriesuid', 'coordX', 'coordY', 'coordZ', 'probability']
 
         i = 0
+        #print('results : ')
+        #print(len(results[1:]))
         for result in results[1:]:
-            nodule_seriesuid = result[header.index(seriesuid_label)]  # 获取检测到的结节对应的病人id
+            nodule_seriesuid = result[header.index(seriesuid_label)]  # 获取检测到的结节对应的病人id seriesuid_label = 'seriesuid'
 
             if seriesuid == nodule_seriesuid:
                 nodule = getNodule(result, header)
                 nodule.candidateID = i
                 nodules[nodule.candidateID] = nodule
                 i += 1
+        if(i != 0): k += 1  # 看有多少病例找到了候选结节
 
         if (maxNumberOfCADMarks > 0):
             # number of CAD marks, only keep must suspicous marks
@@ -201,13 +218,13 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             if len(nodules.keys()) > maxNumberOfCADMarks:
                 # make a list of all probabilities
                 probs = []
-                for keytemp, noduletemp in nodules.iteritems():
+                for keytemp, noduletemp in nodules.items():
                     probs.append(float(noduletemp.CADprobability))
                 probs.sort(reverse=True)  # sort from large to small
                 probThreshold = probs[maxNumberOfCADMarks]
                 nodules2 = {}
                 nrNodules2 = 0
-                for keytemp, noduletemp in nodules.iteritems():
+                for keytemp, noduletemp in nodules.items():
                     if nrNodules2 >= maxNumberOfCADMarks:
                         break
                     if float(noduletemp.CADprobability) > probThreshold:
@@ -216,8 +233,10 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
 
                 nodules = nodules2
 
-        # print('adding candidates: ', seriesuid)
+        #print('adding candidates: ', seriesuid)
         allCandsCAD[seriesuid] = nodules  # 将病例与对应候选结节存入字典
+        #print('该病例候选结节个数 ： ' + str(i))  # 只会对做test的子文件里的病例挑选出候选结节，其他子文件夹内的病例候选结节为0
+    print('有这么多个病例找到了候选结节 ： ' + str(k))
 
     # open output files
     nodNoCandFile = open(os.path.join(outputDir, "nodulesWithoutCandidate_%s.txt" % CADSystemName), 'w')
@@ -251,6 +270,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             candidates = allCandsCAD[seriesuid]  # 获取当前病人的候选结节
         except KeyError:
             candidates = {}
+        #print('[done] get the candidates for this case!')
 
         totalNumberOfCands += len(candidates.keys())  # 加进总候选结节中
 
@@ -262,6 +282,8 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             noduleAnnots = allNodules[seriesuid]  # 获取当前病人所有的注释结节（真结节+无关结节）
         except KeyError:
             noduleAnnots = []
+        #print('[done] get the nodule annotations on this case!')
+        #print('noduleAnnots ： ' + str(len(noduleAnnots)))
 
         # - loop over the nodule annotations
         for noduleAnnot in noduleAnnots:  # 对每一个注释的结节
@@ -281,20 +303,25 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             if diameter < 0.0:
                 diameter = 10.0
             radiusSquared = pow((diameter / 2.0), 2.0)  # 半径的平方
+            print('radiusSquared : ' + str(radiusSquared))
 
             found = False
             noduleMatches = []
-            for key, candidate in candidates.iteritems():  # 对于每一个候选结节，判断是否与真实结节相交
+            for key, candidate in candidates.items():  # 对于每一个候选结节，判断是否与真实结节相交
                 x2 = float(candidate.coordX)
                 y2 = float(candidate.coordY)
                 z2 = float(candidate.coordZ)
 
                 dist = math.pow(x - x2, 2.) + math.pow(y - y2, 2.) + math.pow(z - z2, 2.)  # 计算两个结节中心的距离的平方
+                print('dist : ' + str(dist))
 
                 if dist < radiusSquared:  # 判断是否在半径距离内
+                    print('dist : ' + str(dist))
+                    print('radiusSquared : ' + str(radiusSquared))
                     if (noduleAnnot.state == "Included"):  # 如果是用来检测的结节，匹配成功
                         found = True
                         noduleMatches.append(candidate)
+                        print('--------found!-------')
 
                         if key not in candidates2.keys():  # 把每个与注释结节相交的候选结节提取出来后，要删除副本中的id，以此检测是否有其他注释结节与该候选结节相交
                             print("This is strange: CAD mark %s detected two nodules! Check for overlapping nodule annotations, SeriesUID: %s, nodule Annot ID: %s" % (
@@ -352,7 +379,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
                     float(noduleAnnot.diameter_mm), str(-1)))
 
         # add all false positives to the vectors
-        for key, candidate3 in candidates2.iteritems():  # 此时candidates2中是无人领取的候选结节，都是false positive
+        for key, candidate3 in candidates2.items():  # 此时candidates2中是无人领取的候选结节，都是false positive
             candFPs += 1
             FROCGTList.append(0.0)
             FROCProbList.append(float(candidate3.CADprobability))
@@ -361,6 +388,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             FROCtoNoduleMap.append("%s,%s,%s,%s,%s,%s,%.9f" % (
             seriesuid, -1, candidate3.coordX, candidate3.coordY, candidate3.coordZ, str(candidate3.id),
             float(candidate3.CADprobability)))
+    print('totalNumberOfCands : ' + str(totalNumberOfCands))
 
     if not (len(FROCGTList) == len(FROCProbList) and len(FROCGTList) == len(FPDivisorList) and len(FROCGTList) == len(
             FROCtoNoduleMap) and len(FROCGTList) == len(excludeList)):
@@ -551,10 +579,13 @@ def noduleCADEvaluation(annotations_filename, annotations_excluded_filename, ser
     @param outputDir: output directory
     '''
 
-    print(annotations_filename)
+    print(55555,results_filename)
 
     # 根据标签和用户id，求出所有结节，所有用户
     (allNodules, seriesUIDs) = collect(annotations_filename, annotations_excluded_filename, seriesuids_filename)
+
+    print(111,results_filename)
+    print(222,outputDir)
 
     # 根据结节，用户，结果文件，输出froc值
     evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules,

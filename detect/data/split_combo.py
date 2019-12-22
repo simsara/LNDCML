@@ -10,7 +10,7 @@ class SplitComb():
         self.stride = stride  # 每隔多少切一个小立方体
         self.margin = margin  # 增加的边缘值
         self.pad_value = pad_value  # 水的HU值
-        print(self.side_len,self.max_stride,self.stride,self.margin)
+        #print(self.side_len,self.max_stride,self.stride,self.margin)
         
     def split(self, data, side_len = None, max_stride = None, margin = None):
         if side_len==None:  

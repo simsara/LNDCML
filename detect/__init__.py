@@ -133,12 +133,16 @@ def try_resume(net, args):
     file_name = get_save_file_name(save_dir, resume_epoch)
     args.start_epoch = resume_epoch
     if os.path.exists(file_name):
+        print('我们使用的模型是 ：')
+        print(file_name)
         checkpoint = torch.load(file_name)
         new_state_dict = OrderedDict()
         for k, v in checkpoint['state_dict'].items():
             name = 'module.%s' % k  # add `module.`
+            #print(name)
             new_state_dict[name] = v
         net.load_state_dict(new_state_dict)
+        #print(new_state_dict[name])
     else:
         log.info('No saved file. ID: %s. Epoch: %s' % (args.id, resume_epoch))
 
@@ -270,6 +274,10 @@ def validate(data_loader, net, loss):
 
 def get_test_loader(args, net_config):
     train_files, test_files = get_file_list(args)
+    #print('------train-----')
+    #print(train_files[:][0:10])
+    #print('------test-----')
+    #print(test_files)
     data_dir = env.get('preprocess_result_path')
 
     split_combo = SplitComb(net_config['side_len'], net_config['max_stride'], net_config['stride'],
@@ -307,8 +315,8 @@ def test(data_loader, net, get_pbb, args, net_config):
     split_combo = data_loader.dataset.split_combo
     with torch.no_grad():
         for i_name, (data, target, coord, nzhw, nzhw2) in enumerate(data_loader):
-            print(111111, nzhw)  # 9 8 10
-            print(222222, nzhw2)  # 3 2 3
+            #print(111111, nzhw)  # 9 8 10
+            #print(222222, nzhw2)  # 3 2 3
 
             target = [np.asarray(t, np.float32) for t in target]
             lbb = target[0]
@@ -335,12 +343,13 @@ def test(data_loader, net, get_pbb, args, net_config):
             featurelist = []
 
             for i in range(len(splitlist) - 1):
-                # input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
-                # inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
                 input = data[splitlist[i]:splitlist[i + 1]]
-                input = input.type(torch.FloatTensor).cuda()
-                inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
-                print(input.shape)
+                input = Variable(input.type(torch.FloatTensor)).cuda()
+                inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]]).cuda()
+                #input = data[splitlist[i]:splitlist[i + 1]]
+                #input = input.type(torch.FloatTensor).cuda()
+                #inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
+                #print(input.shape)
                 if isfeat:
                     output, feature = net(input, inputcoord)
                     featurelist.append(feature.data.cpu().numpy())
@@ -354,7 +363,16 @@ def test(data_loader, net, get_pbb, args, net_config):
                 feature = split_combo.combine(feature, net_config['side_len'])[..., 0]
 
             thresh = args.testthresh  # -8 #-3
+            #print(output)
+            print('output : ')
+            print(output.shape)
+            print('thresh : ')
+            print(thresh)
             pbb, mask = get_pbb(output, thresh, is_mask=True)
+            print('pbb : ')
+            print(pbb.shape)
+            print('max pbb ' + str(max(pbb[:, 0])))
+            print('min pbb ' + str(min(pbb[:, 0])))
             if isfeat:
                 feature_selected = feature[mask[0], mask[1], mask[2]]
                 np.save(os.path.join(save_dir, name + '_feature.npy'), feature_selected)
