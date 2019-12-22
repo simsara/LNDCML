@@ -125,7 +125,7 @@ class DataBowl3Detector(Dataset):
 
     def __len__(self):
         if self.phase == 'train':
-            return math.floor(len(self.bboxes) / (1 - self.r_rand))  # 随机
+            return math.ceil(len(self.bboxes) / (1 - self.r_rand))  # 随机
         elif self.phase == 'val':
             return len(self.bboxes)
         else:
