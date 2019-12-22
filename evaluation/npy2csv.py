@@ -13,7 +13,7 @@ import functools
 
 from tools import *
 
-fold = 8
+fold = 1
 #annotations_filename = '' # path for ground truth annotations for the fold
 annotations_filename = './annotations/annotations.csv'
 #annotations_excluded_filename = '' # path for excluded annotations for the fold
@@ -21,12 +21,12 @@ annotations_excluded_filename = './annotations/annotations_excluded.csv'
 #seriesuids_filename = '' # path for seriesuid for the fold
 seriesuids_filename = './annotations/seriesuids.csv'
 results_path = '/home/lwq/netsave/dpn3d26/deeplung/' # val' #val' ft96'+'/val'#
-sideinfopath = '/home/lwq/dataset/luna16/data/subset8/'  # subset'+str(fold)+'/'  +str(fold)
-datapath = '/home/lwq/dataset/luna16/subset/subset8/'  # subset'+str(fold)+'/'
+sideinfopath = '/home/lwq/dataset/luna16/data/subset1/'  # subset'+str(fold)+'/'  +str(fold)
+datapath = '/home/lwq/dataset/luna16/subset/subset1/'  # subset'+str(fold)+'/'
 
 maxeps = 1  #03 #150 #100
 eps = range(1, maxeps + 1,1)  # 6,7,1)#5,151,5)#5,151,5)#76,77,1)#40,41,1)#76,77,1)#1,101,1)#17,18,1)#38,39,1)#1, maxeps+1, 1) #maxeps+1, 1)
-detp = [-150]  # , -0.5, 0]#, 0.5, 1]#, 0.5, 1] #range(-1, 0, 1)
+detp = [-2]  # , -0.5, 0]#, 0.5, 1]#, 0.5, 1] #range(-1, 0, 1)
 isvis = False  # True
 nmsthresh = 0.1  # 非极大值抑制的阈值设置
 nprocess = 1  # 4 线程的个数
@@ -145,11 +145,13 @@ def getfroc(detp, eps):  # 阈值和epoch
         print('predannofnamalist : ')
         print(predannofnamalist)
         froclist = p.map(getfrocvalue, predannofnamalist)  # 得到当前epoch的所有froc值
+        print('froclist : ')
         print(froclist)
         if maxfroc < max(froclist):  # 如果记录的maxfroc值小于当前epoch的froclist的最大值
             maxep = ep  # 更新maxep
             maxfroc = max(froclist)  # 更新maxfroc
-        # print(froclist)
+        print('froclist : ')
+        print(froclist)
         for detpthresh in detp:  # TODO 没看懂这个循环在干嘛
             # print len(froclist), int((detpthresh-detp[0])/(detp[1]-detp[0]))
             frocarr[(ep - eps[0]) / (eps[1] - eps[0]), int((detpthresh - detp[0]) / (detp[1] - detp[0]))] = \
@@ -157,7 +159,7 @@ def getfroc(detp, eps):  # 阈值和epoch
             print('ep', ep, 'detp', detpthresh, froclist[int((detpthresh - detp[0]) / (detp[1] - detp[0]))])
     print(maxfroc, maxep)
 
-#getcsv(detp,eps)
+getcsv(detp,eps)
 
 print('-------------------get csv finied !-------------------')
 
