@@ -12,6 +12,7 @@ class LabelMapping(object):
     def __init__(self, config, phase):
         self.stride = np.array(config['stride'])
         self.num_neg = int(config['num_neg'])
+        self.num_pos = int(config['num_pos'])
         self.th_neg = config['th_neg']
         self.anchors = np.asarray(config['anchors'])
         self.phase = phase
@@ -66,20 +67,27 @@ class LabelMapping(object):
         ih = np.concatenate(ih, 0)
         iw = np.concatenate(iw, 0)
         ia = np.concatenate(ia, 0)
+
+        pos_list = []
         if len(iz) == 0:  # 离目标最近的一个点
             pos = []
             for i in range(3):
                 pos.append(max(0, int(np.round((target[i] - offset) / stride))))
             idx = np.argmin(np.abs(np.log(target[3] / anchors)))
             pos.append(idx)
+            pos_list.append(pos)
         else:
-            idx = random.sample(range(len(iz)), 1)[0]  # 随机选一个
-            pos = [iz[idx], ih[idx], iw[idx], ia[idx]]
-        dz = (target[0] - oz[pos[0]]) / anchors[pos[3]]
-        dh = (target[1] - oh[pos[1]]) / anchors[pos[3]]
-        dw = (target[2] - ow[pos[2]]) / anchors[pos[3]]
-        dd = np.log(target[3] / anchors[pos[3]])
-        label[pos[0], pos[1], pos[2], pos[3], :] = [1, dz, dh, dw, dd]  # 一个正标签
+            rand_list = random.sample(range(len(iz)), min(self.num_pos, len(iz)))  # 随机n个
+            for idx in rand_list:
+                pos = [iz[idx], ih[idx], iw[idx], ia[idx]]
+                pos_list.append(pos)
+
+        for pos in pos_list:
+            dz = (target[0] - oz[pos[0]]) / anchors[pos[3]]
+            dh = (target[1] - oh[pos[1]]) / anchors[pos[3]]
+            dw = (target[2] - ow[pos[2]]) / anchors[pos[3]]
+            dd = np.log(target[3] / anchors[pos[3]])
+            label[pos[0], pos[1], pos[2], pos[3], :] = [1, dz, dh, dw, dd]  # 一个正标签
         return label
 
 

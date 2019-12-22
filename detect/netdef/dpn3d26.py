@@ -2,37 +2,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 
+from detect.netdef import get_common_config
 from detect.netdef.loss import Loss
 from detect.netdef.pbb import GetPBB
 
-config = {}
-config['anchors'] = [5., 10., 20.]  # [ 10.0, 30.0, 60.]
-config['chanel'] = 1
-config['crop_size'] = [96, 96, 96]
-config['stride'] = 4
-config['max_stride'] = 16
-config['num_neg'] = 800
-config['th_neg'] = 0.02
-config['th_pos_train'] = 0.5
-config['th_pos_val'] = 1
-config['num_hard'] = 2
-config['bound_size'] = 12
-config['reso'] = 1
-config['sizelim'] = 2.5  # 3 #6. #mm
-config['sizelim2'] = 10  # 30
-config['sizelim3'] = 20  # 40
-config['aug_scale'] = True
-config['r_rand_crop'] = 0.3
-config['pad_value'] = 170
-config['augtype'] = {'flip': True, 'swap': False, 'scale': True, 'rotate': False}
-config['side_len'] = 144
-config['margin'] = 32
-config['blacklist'] = ['868b024d9fa388b7ddab12ec1c06af38',
-                       '990fbe3f0a1b53878669967b9afd1441',
-                       'adc3bbc63d40f8761c59be10f1e504c3']
-debug = False
+config = get_common_config()
 
 
 class Bottleneck(nn.Module):
@@ -69,25 +44,13 @@ class Bottleneck(nn.Module):
         F是卷积层函数
         x是一个DPN块的输入
         """
-        if debug:
-            print('bottleneck_0', x.size(), self.last_planes, self.in_planes, 1)
         out = F.relu(self.bn1(self.conv1(x)))
-        if debug:
-            print('bottleneck_1', out.size(), self.in_planes, self.in_planes, 3)
         out = F.relu(self.bn2(self.conv2(out)))
-        if debug:
-            print('bottleneck_2', out.size(), self.in_planes, self.out_planes + self.dense_depth, 1)
         out = self.bn3(self.conv3(out))
-        if debug:
-            print('bottleneck_3', out.size())
         x = self.shortcut(x)  # residual learning
         d = self.out_planes
-        if debug:
-            print('bottleneck_4', x.size(), self.last_planes, self.out_planes + self.dense_depth, d)
         out = torch.cat([x[:, :d, :, :] + out[:, :d, :, :], x[:, d:, :, :], out[:, d:, :, :]],
                         1)  # [x[:d]+F(x)[:d],x[d:],F(x)[d:]]
-        if debug:
-            print('bottleneck_5', out.size())
         out = F.relu(out)  # y
         return out
 
@@ -149,42 +112,28 @@ class DPN(nn.Module):
         strides = [stride] + [1] * (num_blocks - 1)  # [4,1]=[4]+[1]*(2-1)
         layers = []
         for i, stride in enumerate(strides):  # i=0,stride=4 i=1,stride=1
-            # if debug: print(i, self.last_planes, in_planes, out_planes, dense_depth)
             layers.append(Bottleneck(self.last_planes, in_planes, out_planes, dense_depth, stride, i == 0))
             self.last_planes = out_planes + (i + 2) * dense_depth  # 每经过两个DPN模块，last_planes增加24
         return nn.Sequential(*layers)  # 将每一个模块按顺序送入到nn.Sequential中
 
     def forward(self, x, coord):
-        if debug: print('0', x.size(), 64)  # 24*24*24*8
         out0 = F.relu(self.bn1(self.conv1(x)))  # [24 3*3*3] 96*96*96*24
-        if debug: print('1', out0.size())
         out1 = self.layer1(out0)  # [2DPN] 48*48*48*48
-        if debug: print('2', out1.size())
         out2 = self.layer2(out1)  # [2DPN] 24*24*24*72
-        if debug: print('3', out2.size())
         out3 = self.layer3(out2)  # [2DPN] 12*12*12*96
-        if debug: print('4', out3.size())
         out4 = self.layer4(out3)  # [2DPN] 6*6*6*120
-        if debug: print('5', out4.size())
 
         out5 = self.path1(out4)  # [Deconv] 12*12*12*120
-        if debug: print('6', out5.size(), torch.cat((out3, out5), 1).size())
         out6 = self.layer5(torch.cat((out3, out5), 1))  # [2DPN] 12*12*12*(96+120) -> 12*12*12*(128+24=152)
-        if debug: print('7', out6.size())
         out7 = self.path2(out6)  # [Deconv] 24*24*24*152
-        if debug: print('8', out7.size(), torch.cat((out2, out7), 1).size())  # 24*24*24*152 24*24*24*224
         out8 = self.layer6(torch.cat((out2, out7, coord), 1))  # [2DPN] 24*24*24*(224+3) -> 24*24*24*(224+24=248)
-        if debug: print('9', out8.size())
         comb2 = self.drop(out8)  # 24*24*24*248
         out = self.output(comb2)  # 24*24*24*(5*3)
-        if debug: print('10', out.size())
         size = out.size()
         out = out.view(out.size(0), out.size(1), -1)  # 展开
-        if debug: print('11', out.size())  # 13824*(5*3)
         # out = out.transpose(1, 4).transpose(1, 2).transpose(2, 3).contiguous()
         # 交换维度后再展开 num * 24 * 24 * 24 * 3 * 5
         out = out.transpose(1, 2).contiguous().view(size[0], size[2], size[3], size[4], len(config['anchors']), 5)
-        if debug: print('12', out.size())
         return out  # , out_1
 
 
