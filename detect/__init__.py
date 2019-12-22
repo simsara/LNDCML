@@ -346,12 +346,12 @@ def test(data_loader, net, get_pbb, args, net_config):
 
             for i in range(len(splitlist) - 1):
                 input = data[splitlist[i]:splitlist[i + 1]]
-                input = Variable(input.type(torch.FloatTensor)).cuda()
-                inputcoord = Variable(coord[splitlist[i]:splitlist[i + 1]]).cuda()
-                # input = data[splitlist[i]:splitlist[i + 1]]
-                # input = input.type(torch.FloatTensor).cuda()
-                # inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
-                # print(input.shape)
+                input = Variable(input).cuda()
+                inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]]).cuda()
+                #input = data[splitlist[i]:splitlist[i + 1]]
+                #input = input.type(torch.FloatTensor).cuda()
+                #inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
+                #print(input.shape)
                 if isfeat:
                     output, feature = net(input, inputcoord)
                     featurelist.append(feature.data.cpu().numpy())

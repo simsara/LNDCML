@@ -108,7 +108,7 @@ class DataBowl3Detector(Dataset):
                                      np.linspace(-0.5, 0.5, img_data.shape[2] / self.stride),
                                      np.linspace(-0.5, 0.5, img_data.shape[3] / self.stride), indexing='ij')
             coord = np.concatenate([xx[np.newaxis, ...], yy[np.newaxis, ...], zz[np.newaxis, :]], 0).astype('float32')
-            img_data2, nzhw = self.split_combo.split(img_data,side_len=self.split_combo.side_len,
+            img_data, nzhw = self.split_combo.split(img_data,side_len=self.split_combo.side_len,
                                                    max_stride=self.split_combo.max_stride,
                                                    margin=self.split_combo.margin)
             #print(nzhw)
@@ -119,9 +119,9 @@ class DataBowl3Detector(Dataset):
                                                    margin=int(self.split_combo.margin / self.stride))
 
             #print(nzhw2)
-            #assert np.all(nzhw == nzhw2)
-            img_data2 = (img_data2.astype(np.float32) - 128) / 128  # [0,256] -> [-1,1]
-            return torch.from_numpy(img_data2), bboxes, torch.from_numpy(coord2), np.array(nzhw),np.array(nzhw2)#,np.array(coord),np.array(img_data)
+            assert np.all(nzhw == nzhw2)
+            img_data = (img_data.astype(np.float32) - 128) / 128  # [0,256] -> [-1,1]
+            return torch.from_numpy(img_data), bboxes, torch.from_numpy(coord2), np.array(nzhw),np.array(nzhw2)#,np.array(coord),np.array(img_data)
 
     def __len__(self):
         if self.phase == 'train':
