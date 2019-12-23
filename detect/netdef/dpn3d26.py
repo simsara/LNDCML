@@ -149,7 +149,7 @@ def DPN92_3D():
 
 def get_model():
     net = DPN92_3D()
-    net = torch.nn.DataParallel(net.cuda())  # 使用多个GPU进行训练
+    net = torch.nn.DataParallel(net).cuda()  # 使用多个GPU进行训练
     loss = Loss(config['num_hard'])  # 使用hard mining策略
     get_pbb = GetPBB(config)  # probability of bounding box
     return config, net, loss, get_pbb

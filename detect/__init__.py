@@ -174,7 +174,7 @@ def run_train():
 
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
         train(train_loader, net, loss, epoch, optimizer, args)
-        validate(val_loader, net, loss)
+        # validate(val_loader, net, loss)
 
 
 def run_validate():
