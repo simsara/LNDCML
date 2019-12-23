@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from detect import netdef, data
 from detect.data.dataset import DataBowl3Detector
-from detect.data.split_combo import SplitComb
+from detect.data.split_combine import SplitCombine
 from utils import gpu, env
 from utils.log import get_logger
 
@@ -141,10 +141,10 @@ def try_resume(net, args):
         new_state_dict = OrderedDict()
         for k, v in checkpoint['state_dict'].items():
             name = 'module.%s' % k  # add `module.`
-            # print(name)
+            # log.info(name)
             new_state_dict[name] = v
         net.load_state_dict(new_state_dict)
-        # print(new_state_dict[name])
+        # log.info(new_state_dict[name])
     else:
         log.info('No saved file. ID: %s. Epoch: %s' % (args.id, resume_epoch))
 
@@ -277,20 +277,20 @@ def validate(data_loader, net, loss):
 
 def get_test_loader(args, net_config):
     train_files, test_files = get_file_list(args)
-    # print('------train-----')
-    # print(train_files[:][0:10])
-    # print('------test-----')
-    # print(test_files)
+    # log.info('------train-----')
+    # log.info(train_files[:][0:10])
+    # log.info('------test-----')
+    # log.info(test_files)
     data_dir = env.get('preprocess_result_path')
 
-    split_combo = SplitComb(net_config['side_len'], net_config['max_stride'], net_config['stride'],
-                            net_config['margin'], net_config['pad_value'])
+    split_combine = SplitCombine(net_config['side_len'], net_config['max_stride'], net_config['stride'],
+                                 net_config['margin'], net_config['pad_value'])
     dataset = DataBowl3Detector(
         data_dir,
         test_files,
         net_config,
         phase='test',
-        split_combo=split_combo)
+        split_combine=split_combine)
     test_loader = DataLoader(
         dataset,
         batch_size=1,
@@ -318,63 +318,58 @@ def test(data_loader, net, get_pbb, args, net_config):
     split_combo = data_loader.dataset.split_combo
     with torch.no_grad():
         for i_name, (data, target, coord, nzhw, nzhw2) in enumerate(data_loader):
-            # print(111111, nzhw)  # 9 8 10
-            # print(222222, nzhw2)  # 3 2 3
+            # log.info(111111, nzhw)  # 9 8 10
+            # log.info(222222, nzhw2)  # 3 2 3
 
             target = [np.asarray(t, np.float32) for t in target]
-            lbb = target[0]
+            lbb = target[0]  # batch_size=1
             nzhw = nzhw[0]
             name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[0]
+            namelist.append(name)
             data = data[0][0]
             coord = coord[0][0]
             # data2 = data2[0]
             # coord2 = coord2[0]
 
-            # print(333333,data2.shape)  # 1 300 256 332
-            # print(444444,coord2.shape) # 3 75 64 83
+            # log.info(333333,data2.shape)  # 1 300 256 332
+            # log.info(444444,coord2.shape) # 3 75 64 83
 
             isfeat = False
             if 'output_feature' in net_config:
                 if net_config['output_feature']:
                     isfeat = True
             n_per_run = args.gpu_test
-            splitlist = list(range(0, len(data) + 1, n_per_run))  # python23 range
-            if splitlist[-1] != len(data):
-                splitlist.append(len(data))
-            outputlist = []
-            featurelist = []
+            split_list = list(range(0, len(data) + 1, n_per_run))  # python23 range
+            if split_list[-1] != len(data):
+                split_list.append(len(data))
+            output_list = []
+            feature_list = []
 
-            for i in range(len(splitlist) - 1):
-                input = data[splitlist[i]:splitlist[i + 1]]
-                input = Variable(input).cuda()
-                inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]]).cuda()
-                #input = data[splitlist[i]:splitlist[i + 1]]
-                #input = input.type(torch.FloatTensor).cuda()
-                #inputcoord = coord[splitlist[i]:splitlist[i + 1]].cuda()
-                #print(input.shape)
+            for i in range(len(split_list) - 1):
+                st = split_list[i]
+                ed = split_list[i + 1]
+                input = Variable(data[st:ed]).cuda()
+                input_coord = Variable(coord[st:ed]).cuda()
                 if isfeat:
-                    output, feature = net(input, inputcoord)
-                    featurelist.append(feature.data.cpu().numpy())
+                    output, feature = net(input, input_coord)
+                    feature_list.append(feature.data.cpu().numpy())
                 else:
-                    output = net(input, inputcoord)
-                outputlist.append(output.data.cpu().numpy())
-            output = np.concatenate(outputlist, 0)
+                    output = net(input, input_coord)
+                output_list.append(output.data.cpu().numpy())
+            output = np.concatenate(output_list, 0)
             output = split_combo.combine(output, nzhw=nzhw)
             if isfeat:
-                feature = np.concatenate(featurelist, 0).transpose([0, 2, 3, 4, 1])[:, :, :, :, :, np.newaxis]
+                feature = np.concatenate(feature_list, 0).transpose([0, 2, 3, 4, 1])[:, :, :, :, :, np.newaxis]
                 feature = split_combo.combine(feature, net_config['side_len'])[..., 0]
 
             thresh = args.testthresh  # -8 #-3
-            # print(output)
-            print('output : ')
-            print(output.shape)
-            print('thresh : ')
-            print(thresh)
+            # log.info(output)
+            log.info('output : %s' % output.shape)
+            log.info('thresh : %s' % thresh)
             pbb, mask = get_pbb(output, thresh, is_mask=True)
-            print('pbb : ')
-            print(pbb.shape)
-            print('max pbb ' + str(max(pbb[:, 0])))
-            print('min pbb ' + str(min(pbb[:, 0])))
+            log.info('pbb : %s' % pbb.shape)
+            log.info('max pbb ' + str(max(pbb[:, 0])))
+            log.info('min pbb ' + str(min(pbb[:, 0])))
             if isfeat:
                 feature_selected = feature[mask[0], mask[1], mask[2]]
                 np.save(os.path.join(save_dir, name + '_feature.npy'), feature_selected)

@@ -15,7 +15,7 @@ log = get_logger(__name__)
 
 
 class DataBowl3Detector(Dataset):
-    def __init__(self, data_dir, sample_prefix_list, config, phase='train', split_combo=None):
+    def __init__(self, data_dir, sample_prefix_list, config, phase='train', split_combine=None):
         assert (phase == 'train' or phase == 'val' or phase == 'test')
         self.phase = phase
         self.max_stride = config['max_stride']
@@ -28,7 +28,8 @@ class DataBowl3Detector(Dataset):
         self.r_rand = config['r_rand_crop']
         self.augtype = config['augtype']
         self.pad_value = config['pad_value']
-        self.split_combo = split_combo
+        self.split_combine = split_combine
+        self.sample_prefix_list = sample_prefix_list
 
         self.img_file_names = [os.path.join(data_dir, '%s_clean.npy' % idx) for idx in sample_prefix_list]  # 处理完的图像
         labels = []  # 按顺序的标签集
@@ -108,20 +109,20 @@ class DataBowl3Detector(Dataset):
                                      np.linspace(-0.5, 0.5, img_data.shape[2] / self.stride),
                                      np.linspace(-0.5, 0.5, img_data.shape[3] / self.stride), indexing='ij')
             coord = np.concatenate([xx[np.newaxis, ...], yy[np.newaxis, ...], zz[np.newaxis, :]], 0).astype('float32')
-            img_data, nzhw = self.split_combo.split(img_data,side_len=self.split_combo.side_len,
-                                                   max_stride=self.split_combo.max_stride,
-                                                   margin=self.split_combo.margin)
+            img_data, nzhw = self.split_combine.split(img_data, side_len=self.split_combine.side_len,
+                                                      max_stride=self.split_combine.max_stride,
+                                                      margin=self.split_combine.margin)
             #print(nzhw)
 
-            coord2, nzhw2 = self.split_combo.split(coord,  # python3 python2
-                                                   side_len=int(self.split_combo.side_len / self.stride),
-                                                   max_stride=int(self.split_combo.max_stride / self.stride),
-                                                   margin=int(self.split_combo.margin / self.stride))
+            coord2, nzhw2 = self.split_combine.split(coord,  # python3 python2
+                                                     side_len=int(self.split_combine.side_len / self.stride),
+                                                     max_stride=int(self.split_combine.max_stride / self.stride),
+                                                     margin=int(self.split_combine.margin / self.stride))
 
             #print(nzhw2)
             assert np.all(nzhw == nzhw2)
             img_data = (img_data.astype(np.float32) - 128) / 128  # [0,256] -> [-1,1]
-            return torch.from_numpy(img_data), bboxes, torch.from_numpy(coord2), np.array(nzhw),np.array(nzhw2)#,np.array(coord),np.array(img_data)
+            return torch.from_numpy(img_data), bboxes, torch.from_numpy(coord2), np.array(nzhw), np.array(nzhw2)
 
     def __len__(self):
         if self.phase == 'train':
