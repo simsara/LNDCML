@@ -201,7 +201,7 @@ def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
     for i, (data, target, coord) in enumerate(data_loader):
         data = Variable(data.cuda(), requires_grad=True)
         target = Variable(target.cuda())
-        coord = Variable(coord.cuda())
+        coord = Variable(coord.cuda(), requires_grad=True)
 
         output = net(data, coord)
         loss_output = loss(output, target)
