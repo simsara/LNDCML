@@ -8,7 +8,7 @@ from scipy.ndimage.interpolation import zoom
 from scipy.ndimage.morphology import binary_dilation, generate_binary_structure
 from skimage.morphology import convex_hull_image
 
-from utils import env, threadpool
+from utils import env, threadpool, file
 from utils.log import get_logger
 
 from tools import *
@@ -153,8 +153,8 @@ def save_npy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
 
 def prepare_luna():
     luna_segment = env.get('luna_segment')  # 存放CT掩码的路径
-    save_path = env.get('preprocess_result_path')  # 存放预处理后数据的路径
-    luna_data = env.get('luna_data')  # LUNA16的原始数据
+    save_path = file.get_preprocess_result_path()  # 存放预处理后数据的路径
+    luna_data = file.get_luna_data_path()  # LUNA16的原始数据
     luna_label = env.get('luna_label')  # 存放所有病例标签的文件 内容格式: id, x, y, z, r
 
     log.info('starting preprocessing luna')

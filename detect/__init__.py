@@ -5,22 +5,21 @@ from collections import OrderedDict
 
 import numpy as np
 import torch
+from torch.autograd import Variable
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
 
 from detect import netdef, data
 from detect.data.dataset import DataBowl3Detector
 from detect.data.split_combine import SplitCombine
-from utils import gpu, env
+from utils import gpu, env, file
 from utils.log import get_logger
-
-from torch.autograd import Variable
 
 log = get_logger(__name__)
 
 
 def get_file_list(args):
-    luna_data_dir = env.get('luna_data')
+    luna_data_dir = file.get_luna_data_path()
     train_files = []
     test_files = []
     train_dir_count = 0
@@ -98,27 +97,9 @@ def get_learning_rate(args, epoch):
     return lr
 
 
-# 根据网络名称和id获取保存路径
-def get_save_dir(args):
-    parent_dir = env.get('net_save_dir')
-    if not os.path.exists(parent_dir):
-        os.mkdir(parent_dir)
-    net_dir = os.path.join(parent_dir, args.model)
-    if not os.path.exists(net_dir):
-        os.mkdir(net_dir)
-    net_id_dir = os.path.join(net_dir, args.id)
-    if not os.path.exists(net_id_dir):
-        os.mkdir(net_id_dir)
-    return net_id_dir
-
-
-def get_save_file_name(save_dir, epoch):
-    return os.path.join(save_dir, '%03d.ckpt' % epoch)
-
-
 def try_resume(net, args):
     args.start_epoch = 1  # 定义开始的epoch
-    save_dir = get_save_dir(args)
+    save_dir = file.get_net_save_dir(args)
     if args.job == 'test':  # test情况总是读取模型
         args.resume = 1
     args.start_epoch = 0
@@ -133,7 +114,7 @@ def try_resume(net, args):
         if len(vali_file_list) > 0:
             last_file_name = vali_file_list[len(vali_file_list) - 1]
             resume_epoch = int(last_file_name[:-5])
-    file_name = get_save_file_name(save_dir, resume_epoch)
+    file_name = file.get_net_save_file_path_name(save_dir, resume_epoch)
     args.start_epoch = resume_epoch
     if os.path.exists(file_name):
         log.info('Resuming model from: %s' % file_name)
@@ -188,7 +169,7 @@ def run_validate():
 
 def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
     save_freq = args.save_freq
-    save_dir = get_save_dir(args)
+    save_dir = file.get_net_save_dir(args)
     start_time = time.time()
 
     net.train()
@@ -221,7 +202,7 @@ def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
             'save_dir': save_dir,
             'state_dict': state_dict,
             'args': args},
-            get_save_file_name(save_dir, epoch))
+            file.get_net_save_file_path_name(save_dir, epoch))
         log.info('Saved. Epoch [%d]' % epoch)
 
     end_time = time.time()
@@ -277,10 +258,6 @@ def validate(data_loader, net, loss):
 
 def get_test_loader(args, net_config):
     train_files, test_files = get_file_list(args)
-    # log.info('------train-----')
-    # log.info(train_files[:][0:10])
-    # log.info('------test-----')
-    # log.info(test_files)
     data_dir = env.get('preprocess_result_path')
 
     split_combine = SplitCombine(net_config['side_len'], net_config['max_stride'], net_config['stride'],
@@ -309,18 +286,12 @@ def run_test():
 
 
 def test(data_loader, net, get_pbb, args, net_config):
-    net_save_dir = get_save_dir(args)
-    save_dir = os.path.join(net_save_dir, 'bbox')
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    save_dir = file.get_net_bbox_save_path(args)
     net.eval()
     namelist = []
     split_combo = data_loader.dataset.split_combo
     with torch.no_grad():
         for i_name, (data, target, coord, nzhw, nzhw2) in enumerate(data_loader):
-            # log.info(111111, nzhw)  # 9 8 10
-            # log.info(222222, nzhw2)  # 3 2 3
-
             target = [np.asarray(t, np.float32) for t in target]
             lbb = target[0]  # batch_size=1
             nzhw = nzhw[0]
@@ -328,16 +299,10 @@ def test(data_loader, net, get_pbb, args, net_config):
             namelist.append(name)
             data = data[0][0]
             coord = coord[0][0]
-            # data2 = data2[0]
-            # coord2 = coord2[0]
 
-            # log.info(333333,data2.shape)  # 1 300 256 332
-            # log.info(444444,coord2.shape) # 3 75 64 83
-
-            isfeat = False
-            if 'output_feature' in net_config:
-                if net_config['output_feature']:
-                    isfeat = True
+            output_feature = False
+            if 'output_feature' in net_config and net_config['output_feature']:
+                output_feature = True
             n_per_run = args.gpu_test
             split_list = list(range(0, len(data) + 1, n_per_run))  # python23 range
             if split_list[-1] != len(data):
@@ -350,7 +315,7 @@ def test(data_loader, net, get_pbb, args, net_config):
                 ed = split_list[i + 1]
                 input = Variable(data[st:ed]).cuda()
                 input_coord = Variable(coord[st:ed]).cuda()
-                if isfeat:
+                if output_feature:
                     output, feature = net(input, input_coord)
                     feature_list.append(feature.data.cpu().numpy())
                 else:
@@ -358,7 +323,7 @@ def test(data_loader, net, get_pbb, args, net_config):
                 output_list.append(output.data.cpu().numpy())
             output = np.concatenate(output_list, 0)
             output = split_combo.combine(output, nzhw=nzhw)
-            if isfeat:
+            if output_feature:
                 feature = np.concatenate(feature_list, 0).transpose([0, 2, 3, 4, 1])[:, :, :, :, :, np.newaxis]
                 feature = split_combo.combine(feature, net_config['side_len'])[..., 0]
 
@@ -370,7 +335,7 @@ def test(data_loader, net, get_pbb, args, net_config):
             log.info('pbb : %s' % pbb.shape)
             log.info('max pbb ' + str(max(pbb[:, 0])))
             log.info('min pbb ' + str(min(pbb[:, 0])))
-            if isfeat:
+            if output_feature:
                 feature_selected = feature[mask[0], mask[1], mask[2]]
                 np.save(os.path.join(save_dir, name + '_feature.npy'), feature_selected)
             np.save(os.path.join(save_dir, name + '_pbb.npy'), pbb)
