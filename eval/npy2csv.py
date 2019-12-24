@@ -16,7 +16,7 @@ resolution = np.array([1, 1, 1])  # 分辨率 TODO 怎么跟网络保持一致
 nms_thresh = 0.1  # 非极大值抑制的阈值设置
 
 
-def convertcsv(bbox_name, bbox_path, detp):  # 给定pbb.npy的文件名，路径，阈值
+def convert_csv(bbox_name, bbox_path, detp):  # 给定pbb.npy的文件名，路径，阈值
     """
     对输出结节应用阈值和nms，输出的结果再转换为label一样的坐标体系，存在一个csv文件中
     """
@@ -54,9 +54,9 @@ def convertcsv(bbox_name, bbox_path, detp):  # 给定pbb.npy的文件名，路�
 
     if is_flip:  # 如果有翻转，将坐标翻转回去
         mask_file_name = file.get_mask_file_path_name(uid)
-        Mask = np.load(mask_file_name, mmap_mode='r')  # 得到对应subset的mask
-        pbb[:, 2] = Mask.shape[1] - pbb[:, 2]
-        pbb[:, 3] = Mask.shape[2] - pbb[:, 3]
+        mask = np.load(mask_file_name, mmap_mode='r')  # 得到对应subset的mask
+        pbb[:, 2] = mask.shape[1] - pbb[:, 2]
+        pbb[:, 3] = mask.shape[2] - pbb[:, 3]
     pos = VoxelToWorldCoord(pbb[:, 1:], origin, spacing)  # 将输出转化为世界坐标
     log.info('[%s] voxel to world finished. Shape: %s' % (uid, pos.shape))
 
@@ -89,7 +89,7 @@ def get_csv(detp, eps, args):  # 给定阈值
 
             future_list = []
             for pbb_file_name in pbb_list:
-                future_list.add(pool.submit(convertcsv, bbox_name=pbb_file_name, bbox_path=bbox_path, detp=detp_thresh))
+                future_list.add(pool.submit(convert_csv, bbox_name=pbb_file_name, bbox_path=bbox_path, detp=detp_thresh))
 
             for future in future_list:  # type: Future
                 predanno = future.result()
