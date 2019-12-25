@@ -10,8 +10,7 @@ from skimage.morphology import convex_hull_image
 
 from utils import env, threadpool, file
 from utils.log import get_logger
-
-from tools import *
+from utils.tools import load_itk_image, world_to_voxel
 
 log = get_logger(__name__)
 
@@ -155,7 +154,7 @@ def prepare_luna():
     luna_segment = env.get('luna_segment')  # 存放CT掩码的路径
     save_path = file.get_preprocess_result_path()  # 存放预处理后数据的路径
     luna_data = file.get_luna_data_path()  # LUNA16的原始数据
-    luna_label = env.get('luna_label')  # 存放所有病例标签的文件 内容格式: id, x, y, z, r
+    luna_label = file.get_annotation_csv()  # 存放所有病例标签的文件 内容格式: id, x, y, z, r
 
     log.info('starting preprocessing luna')
 

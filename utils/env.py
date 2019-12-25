@@ -7,7 +7,7 @@ parser.add_argument('--model', '-m', metavar='MODEL', default='res18', help='模
 parser.add_argument('--id', metavar='MODEL_ID', default='noid', help='这次运行的模型ID，主要用于区分超参数')
 parser.add_argument('--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
+parser.add_argument('--epochs', default=150, type=int, metavar='N',
                     help='number of total epochs to run (default: 100)')
 parser.add_argument('--batch-size', default=16, type=int,
                     metavar='N', help='mini-batch size (default: 16)')

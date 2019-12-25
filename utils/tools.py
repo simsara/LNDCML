@@ -1,8 +1,7 @@
 import csv
-
+import numpy as np
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 def writeCSV(filename, lines):

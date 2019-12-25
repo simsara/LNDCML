@@ -12,6 +12,14 @@ def get_preprocess_result_path():
     return env.get('preprocess_result_path')
 
 
+def get_luna_csv_path():
+    return env.get('luna_csv')
+
+
+def get_luna_csv_name(file_name):
+    return os.path.join(get_luna_csv_path(), file_name)
+
+
 def get_file_path_name_by_uid(parent_dir, uid, suffix):
     for subset in os.listdir(parent_dir):
         if not subset.startswith('subset'):
@@ -58,17 +66,21 @@ def get_net_save_dir(args):
     return net_id_dir
 
 
-def get_net_save_file_path_name(save_dir, epoch):
+def get_net_save_file_path_name(args, epoch):
+    save_dir = get_net_save_dir(args)
     return os.path.join(save_dir, '%03d.ckpt' % epoch)
 
 
-def get_net_bbox_save_path(args):
+def get_net_bbox_save_path(args, epoch):
     net_save_dir = get_net_save_dir(args)
-    save_dir = os.path.join(net_save_dir, 'bbox')
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    return save_dir
+    bbox_dir = os.path.join(net_save_dir, 'bbox')
+    if not os.path.exists(bbox_dir):
+        os.makedirs(bbox_dir)
+    epoch_dir = os.path.join(bbox_dir, '%03d' % epoch)
+    if not os.path.exists(epoch_dir):
+        os.makedirs(epoch_dir)
+    return epoch_dir
 
 
-def get_predanno_file_name(args, detp_thresh):
-    return os.path.join(get_net_bbox_save_path(args), 'predanno%sd3.csv' % str(detp_thresh))
+def get_predanno_file_name(args, epoch, detp_thresh):
+    return os.path.join(get_net_bbox_save_path(args, epoch), 'predanno%sd3.csv' % str(detp_thresh))

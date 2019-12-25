@@ -100,8 +100,6 @@ def get_learning_rate(args, epoch):
 def try_resume(net, args):
     args.start_epoch = 1  # 定义开始的epoch
     save_dir = file.get_net_save_dir(args)
-    if args.job == 'test':  # test情况总是读取模型
-        args.resume = 1
     args.start_epoch = 0
     if args.resume == 0:
         shutil.rmtree(save_dir, True)  # 不继续 将之前的记录删掉
@@ -114,7 +112,7 @@ def try_resume(net, args):
         if len(vali_file_list) > 0:
             last_file_name = vali_file_list[len(vali_file_list) - 1]
             resume_epoch = int(last_file_name[:-5])
-    file_name = file.get_net_save_file_path_name(save_dir, resume_epoch)
+    file_name = file.get_net_save_file_path_name(args, resume_epoch)
     args.start_epoch = resume_epoch
     if os.path.exists(file_name):
         log.info('Resuming model from: %s' % file_name)
@@ -146,7 +144,6 @@ def run_train():
     args = env.get_args()
     config, net, loss, get_pbb = common_init(args)
     train_loader = get_train_loader(args, config)
-    val_loader = get_val_loader(args, config)
     optimizer = torch.optim.SGD(
         net.parameters(),
         args.learning_rate,
@@ -155,7 +152,6 @@ def run_train():
 
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
         train(train_loader, net, loss, epoch, optimizer, args)
-        # validate(val_loader, net, loss)
 
 
 def run_validate():
@@ -202,7 +198,7 @@ def train(data_loader, net, loss, epoch, optimizer, args):  # 跑一个epoch
             'save_dir': save_dir,
             'state_dict': state_dict,
             'args': args},
-            file.get_net_save_file_path_name(save_dir, epoch))
+            file.get_net_save_file_path_name(args, epoch))
         log.info('Saved. Epoch [%d]' % epoch)
 
     end_time = time.time()
@@ -281,12 +277,17 @@ def get_test_loader(args, net_config):
 
 def run_test():
     args = env.get_args()
-    config, net, loss, get_pbb = common_init(args)
-    test(get_test_loader(args, config), net, get_pbb, args, config)
+    args.resume = 1
+    args.nd_train = 9
+    args.nd_test = 1
+    for ep in range(1, args.epoch + 1):
+        args.resume_epoch = ep
+        config, net, loss, get_pbb = common_init(args)
+        test(get_test_loader(args, config), net, get_pbb, args, config, ep)
 
 
-def test(data_loader, net, get_pbb, args, net_config):
-    save_dir = file.get_net_bbox_save_path(args)
+def test(data_loader, net, get_pbb, args, net_config, epoch):
+    save_dir = file.get_net_bbox_save_path(args, epoch)
     net.eval()
     namelist = []
     split_combo = data_loader.dataset.split_combo
