@@ -82,5 +82,17 @@ def get_net_bbox_save_path(args, epoch):
     return epoch_dir
 
 
+def get_eval_save_path(args, epoch, detp_thresh):
+    parent_dir = get_net_bbox_save_path(args, epoch)
+    detp_dir = os.path.join(parent_dir, 'detp%s' % str(detp_thresh))
+    if not os.path.exists(detp_dir):
+        os.makedirs(detp_dir)
+    return detp_dir
+
+
 def get_predanno_file_name(args, epoch, detp_thresh):
-    return os.path.join(get_net_bbox_save_path(args, epoch), 'predanno%sd3.csv' % str(detp_thresh))
+    return os.path.join(get_eval_save_path(args, epoch, detp_thresh), 'predanno.csv' % str(detp_thresh))
+
+
+def get_cad_eval_result_file_name(args, epoch, detp_thresh):
+    return os.path.join(get_net_bbox_save_path(args, epoch), 'd%s_cad.txt' % str(detp_thresh))

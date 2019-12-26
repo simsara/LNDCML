@@ -4,7 +4,7 @@ python3 run.py --job prepare
 ## 可用参数
 Key|Default|Desc
 |:----:|:----:|:----:|
-|--job|train|prepare/train|
+|--job|train|prepare/train/val/test/eval|
 |--model|res18|模型名称 res18 / dpn3d26|
 |--id|noid|模型id|
 |--workers|32|读数据的worker数量|
@@ -22,6 +22,7 @@ Key|Default|Desc
 |--n_test|4|用几个gpu去测试|
 |--nd-train|8|用多少个文件夹去训练|
 |--nd-test|1|用多少个文件夹去测试|
+|--multi-process|0|是否多线程执行 可用阶段 eval|
 
 # 环境变量
 ## 数据预处理部分

@@ -4,13 +4,13 @@ import SimpleITK as sitk
 import matplotlib.pyplot as plt
 
 
-def writeCSV(filename, lines):
+def write_csv(filename, lines):
     with open(filename, "wb") as f:
         csvwriter = csv.writer(f)
         csvwriter.writerows(lines)
 
 
-def readCSV(filename):
+def read_csv(filename):
     lines = []
     with open(filename, "r") as f:
         csvreader = csv.reader(f)

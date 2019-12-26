@@ -117,13 +117,12 @@ def try_resume(net, args):
     if os.path.exists(file_name):
         log.info('Resuming model from: %s' % file_name)
         checkpoint = torch.load(file_name)
-        new_state_dict = OrderedDict()
-        for k, v in checkpoint['state_dict'].items():
-            name = 'module.%s' % k  # add `module.`
-            # log.info(name)
-            new_state_dict[name] = v
-        net.load_state_dict(new_state_dict)
-        # log.info(new_state_dict[name])
+        # new_state_dict = OrderedDict()
+        # for k, v in checkpoint['state_dict'].items():
+        #     name = 'module.%s' % k  # add `module.`
+        #     new_state_dict[name] = v
+        # net.load_state_dict(new_state_dict)
+        net.load_state_dict(checkpoint['state_dict'])
     else:
         log.info('No saved file. ID: %s. Epoch: %s' % (args.id, resume_epoch))
 
@@ -133,6 +132,7 @@ def common_init(args):
     torch.manual_seed(0)
     model = netdef.get_model(args.model)
     config, net, loss, get_pbb = model.get_model()
+    net = torch.nn.DataParallel(net).cuda()  # 使用多个GPU进行训练
     loss = loss.cuda()
     cudnn.benchmark = False
     try_resume(net, args)
@@ -280,9 +280,12 @@ def run_test():
     args.resume = 1
     args.nd_train = 9
     args.nd_test = 1
+    config, net, loss, get_pbb = common_init(args)
     for ep in range(1, args.epoch + 1):
         args.resume_epoch = ep
-        config, net, loss, get_pbb = common_init(args)
+        net = net.cpu()
+        try_resume(net, args)
+        net = net.cuda()
         test(get_test_loader(args, config), net, get_pbb, args, config, ep)
 
 

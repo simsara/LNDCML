@@ -120,7 +120,6 @@ if __name__ == '__main__':
 
 def get_model():
     net = Net()
-    para_net = torch.nn.DataParallel(net.cuda())
     loss = Loss(config['num_hard'])
     get_pbb = GetPBB(config)
-    return config, para_net, loss, get_pbb
+    return config, net, loss, get_pbb

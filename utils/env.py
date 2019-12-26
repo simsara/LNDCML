@@ -35,6 +35,8 @@ parser.add_argument('--nd-train', default=9, type=int, metavar='N',
                     help='用多少个文件夹训练')
 parser.add_argument('--nd-test', default=1, type=int, metavar='N',
                     help='用多少个文件夹测试')
+parser.add_argument('--multi-process', default=0, type=int, metavar='N',
+                    help='是否多线程执行 可用阶段 eval')
 
 
 def get_args():

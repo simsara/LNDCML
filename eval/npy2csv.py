@@ -5,7 +5,8 @@ from concurrent.futures import Future
 
 import numpy as np
 
-from eval.CADevaluation import noduleCADEvaluation
+from eval import pbb_csv_header
+from eval.CADevaluation import nodule_cad_evaluation
 from utils.tools import VoxelToWorldCoord, load_itk_image, nms
 from utils import file
 from utils.log import get_logger
@@ -13,7 +14,6 @@ from utils.threadpool import pool
 
 log = get_logger(__name__)
 
-first_line = ['uid', 'coordX', 'coordY', 'coordZ', 'probability']
 resolution = np.array([1, 1, 1])  # 分辨率 TODO 怎么跟网络保持一致
 nms_thresh = 0.1  # 非极大值抑制的阈值设置
 
@@ -85,7 +85,7 @@ def get_csv(detp, args):  # 给定阈值
             log.info('ep: %d. detp: %3.2f. file: %s' % (ep, detp_thresh, save_file_name))
             f = open(save_file_name, 'w')
             file_writer = csv.writer(f)
-            file_writer.writerow(first_line)  # 写入的第一行为 用户id 结节坐标x,y,z 结节概率
+            file_writer.writerow(pbb_csv_header)  # 写入的第一行为 用户id 结节坐标x,y,z 结节概率
             pbb_list = []
             for file_name in os.listdir(bbox_path):  # bboxpath目录下的所有文件和文件夹
                 if file_name.endswith('_pbb.npy'):  # 找到以_pbb.npy结尾的文件(结节概率文件)，添加进文件列表
@@ -93,24 +93,30 @@ def get_csv(detp, args):  # 给定阈值
             log.info('Pbb size: %d' % len(pbb_list))
 
             future_list = []
+            result_list = []
             for pbb_file_name in pbb_list:
-                future_list.add(
-                    pool.submit(convert_csv, bbox_name=pbb_file_name, bbox_path=bbox_path, detp=detp_thresh))
+                if args.multi_process == 1:
+                    future_list.add(pool.submit(convert_csv, bbox_name=pbb_file_name, bbox_path=bbox_path, detp=detp_thresh))
+                else:
+                    result_list.append(convert_csv(bbox_name=pbb_file_name, bbox_path=bbox_path, detp=detp_thresh))
 
             for future in future_list:  # type: Future
                 predanno = future.result()
-                for row in predanno:
-                    file_writer.writerow(row)
+                result_list.append(predanno)
+
+            for row in result_list:
+                file_writer.writerow(row)
 
             f.close()
             log.info('Finished ep: %d. detp: %3.2f' % (ep, detp_thresh))
 
 
-def get_froc_value(predanno_file):
+def get_froc_value(predanno_filename, output_dir):
     annotations = file.get_luna_csv_name('annotations.csv')
     annotation_exclude = file.get_luna_csv_name('annotations_excluded.csv')
     seriesuids = file.get_luna_csv_name('seriesuids.csv')
-    return noduleCADEvaluation(annotations, annotation_exclude, seriesuids, predanno_file, './result')
+
+    return nodule_cad_evaluation(annotations, annotation_exclude, seriesuids, predanno_filename, output_dir)
 
 
 # 每个epoch都会对应一个csv文件，要选取一个最好的结果，选取标准为froc值
@@ -124,17 +130,22 @@ def get_froc(detp, args):  # 阈值和epoch
         if not epoch_exists(args, ep):
             continue
         future_list = []
+        froc_list = []
         for detp_thresh in detp:  # 对于阈值列表中的每一个阈值
             predanno = file.get_predanno_file_name(args, ep, detp_thresh)
-            future_list.append(pool.submit(get_froc_value, predanno_file=predanno))
+            output_dir = file.get_eval_save_path(args, ep, detp_thresh)
+            if args.multi_process == 1:
+                future_list.append(pool.submit(get_froc_value, predanno_filename=predanno, output_dir=output_dir))
+            else:
+                froc_list.append(get_froc_value(predanno_filename=predanno, output_dir=output_dir))
 
-        froc_list = []
         for future in future_list:  # type: Future
             froc = future.result()
             froc_list.append(froc)
-            if froc > max_froc:
-                max_ep = ep  # 更新maxep
-                max_froc = froc
+
+        if max(froc_list) > max_froc:
+            max_ep = ep  # 更新maxep
+            max_froc = max(froc_list)
 
         log.info('Epoch: %03d. Froc list: %s' % (ep, froc_list))
 

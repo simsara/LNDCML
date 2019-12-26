@@ -1,6 +1,7 @@
 class NoduleFinding(object):
     '''
     Represents a nodule
+    TODO: 改名
     '''
 
     def __init__(self, noduleid=None, coordX=None, coordY=None, coordZ=None, coordType="World",

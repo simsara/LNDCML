@@ -1,5 +1,6 @@
 import detect
 import prepare
+import eval as evaluation
 from utils import env
 
 if __name__ == '__main__':
@@ -12,5 +13,7 @@ if __name__ == '__main__':
         detect.run_test()
     elif args.job == 'val':
         detect.run_validate()
+    elif args.job == 'eval':
+        evaluation.run_evaluation()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)
