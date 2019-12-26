@@ -29,7 +29,6 @@ class DataBowl3Detector(Dataset):
         self.augtype = config['augtype']
         self.pad_value = config['pad_value']
         self.split_combine = split_combine
-        self.sample_prefix_list = sample_prefix_list
 
         self.img_file_names = [os.path.join(data_dir, '%s_clean.npy' % idx) for idx in sample_prefix_list]  # 处理完的图像
         labels = []  # 按顺序的标签集
@@ -131,6 +130,11 @@ class DataBowl3Detector(Dataset):
             return len(self.bboxes)
         else:
             return len(self.sample_bboxes)
+
+    def get_uid(self, idx: int) -> str:
+        full = self.img_file_names[idx]
+        base = os.path.basename(full) # *_clean.npy
+        return base[:-10]
 
 
 def augment(sample, target, bboxes, coord, ifflip=True, ifrotate=True, ifswap=True):

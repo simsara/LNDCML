@@ -283,10 +283,11 @@ def run_test():
     args.nd_train = 9
     args.nd_test = 1
     config, net, loss, get_pbb = common_init(args)
+    data_loader = get_test_loader(args, config)
     for ep in range(1, args.epochs + 1):
         args.resume_epoch = ep
         try_resume(net, args, para=True)
-        test(get_test_loader(args, config), net, get_pbb, args, config, ep)
+        test(data_loader, net, get_pbb, args, config, ep)
 
 
 def test(data_loader, net, get_pbb, args, net_config, epoch):
@@ -299,7 +300,7 @@ def test(data_loader, net, get_pbb, args, net_config, epoch):
             target = [np.asarray(t, np.float32) for t in target]
             lbb = target[0]  # batch_size=1
             nzhw = nzhw[0]
-            name = data_loader.dataset.img_file_names[i_name].split('/')[-1].split('_clean')[0]
+            name = data_loader.dataset.get_uid(i_name)
             namelist.append(name)
             data = data[0][0]
             coord = coord[0][0]
@@ -333,17 +334,17 @@ def test(data_loader, net, get_pbb, args, net_config, epoch):
 
             thresh = args.testthresh  # -8 #-3
             # log.info(output)
-            log.info('output : %s' % output.shape)
+            log.info('output : %s' % str(output.shape))
             log.info('thresh : %s' % thresh)
             pbb, mask = get_pbb(output, thresh, is_mask=True)
-            log.info('pbb : %s' % pbb.shape)
+            log.info('pbb : %s' % str(pbb.shape))
             log.info('max pbb ' + str(max(pbb[:, 0])))
             log.info('min pbb ' + str(min(pbb[:, 0])))
             if output_feature:
                 feature_selected = feature[mask[0], mask[1], mask[2]]
-                np.save(os.path.join(save_dir, name + '_feature.npy'), feature_selected)
-            np.save(os.path.join(save_dir, name + '_pbb.npy'), pbb)
-            np.save(os.path.join(save_dir, name + '_lbb.npy'), lbb)
+                np.save(os.path.join(save_dir, '%s_feature.npy' % name), feature_selected)
+            np.save(os.path.join(save_dir, '%s_pbb.npy' % name), pbb)
+            np.save(os.path.join(save_dir, '%s_lbb.npy' % name), lbb)
         np.save(os.path.join(save_dir, 'namelist.npy'), namelist)
     log.info('Done. Epoch: %d' % epoch)
 
@@ -353,7 +354,3 @@ def normal_lost_list(tensor_list):
     for i in tensor_list:
         normal.append(i.item() if isinstance(i, torch.Tensor) else i)
     return normal
-
-
-if __name__ == '__main__':
-    log.info(run_train())
