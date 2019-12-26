@@ -3,7 +3,7 @@ import os
 
 import matplotlib
 
-from eval import uid_label, x_label, z_label, y_label, diameter_mm_label, probability_label
+from eval.csv_label import uid_label, x_label, z_label, y_label, diameter_mm_label, probability_label
 from eval.NoduleFinding import NoduleFinding
 from utils.log import get_logger
 from utils.tools import *

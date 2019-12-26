@@ -5,7 +5,7 @@ from concurrent.futures import Future
 
 import numpy as np
 
-from eval import pbb_csv_header
+from eval.csv_label import pbb_csv_header
 from eval.CADevaluation import nodule_cad_evaluation
 from utils.tools import VoxelToWorldCoord, load_itk_image, nms
 from utils import file

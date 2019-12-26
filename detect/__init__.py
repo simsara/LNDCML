@@ -97,7 +97,7 @@ def get_learning_rate(args, epoch):
     return lr
 
 
-def try_resume(net, args):
+def try_resume(net, args, para: bool = False):
     args.start_epoch = 1  # 定义开始的epoch
     save_dir = file.get_net_save_dir(args)
     args.start_epoch = 0
@@ -117,12 +117,14 @@ def try_resume(net, args):
     if os.path.exists(file_name):
         log.info('Resuming model from: %s' % file_name)
         checkpoint = torch.load(file_name)
-        # new_state_dict = OrderedDict()
-        # for k, v in checkpoint['state_dict'].items():
-        #     name = 'module.%s' % k  # add `module.`
-        #     new_state_dict[name] = v
-        # net.load_state_dict(new_state_dict)
-        net.load_state_dict(checkpoint['state_dict'])
+        if para:
+            new_state_dict = OrderedDict()
+            for k, v in checkpoint['state_dict'].items():
+                name = 'module.%s' % k  # add `module.`
+                new_state_dict[name] = v
+            net.load_state_dict(new_state_dict)
+        else:
+            net.load_state_dict(checkpoint['state_dict'])
     else:
         log.info('No saved file. ID: %s. Epoch: %s' % (args.id, resume_epoch))
 
@@ -132,10 +134,10 @@ def common_init(args):
     torch.manual_seed(0)
     model = netdef.get_model(args.model)
     config, net, loss, get_pbb = model.get_model()
+    try_resume(net, args)
     net = torch.nn.DataParallel(net).cuda()  # 使用多个GPU进行训练
     loss = loss.cuda()
     cudnn.benchmark = False
-    try_resume(net, args)
     log.info("we have %s GPUs" % torch.cuda.device_count())
     return config, net, loss, get_pbb
 
@@ -281,11 +283,9 @@ def run_test():
     args.nd_train = 9
     args.nd_test = 1
     config, net, loss, get_pbb = common_init(args)
-    for ep in range(1, args.epoch + 1):
+    for ep in range(1, args.epochs + 1):
         args.resume_epoch = ep
-        net = net.cpu()
-        try_resume(net, args)
-        net = net.cuda()
+        try_resume(net, args, para=True)
         test(get_test_loader(args, config), net, get_pbb, args, config, ep)
 
 
@@ -293,7 +293,7 @@ def test(data_loader, net, get_pbb, args, net_config, epoch):
     save_dir = file.get_net_bbox_save_path(args, epoch)
     net.eval()
     namelist = []
-    split_combo = data_loader.dataset.split_combo
+    split_combine = data_loader.dataset.split_combine
     with torch.no_grad():
         for i_name, (data, target, coord, nzhw, nzhw2) in enumerate(data_loader):
             target = [np.asarray(t, np.float32) for t in target]
@@ -326,10 +326,10 @@ def test(data_loader, net, get_pbb, args, net_config, epoch):
                     output = net(input, input_coord)
                 output_list.append(output.data.cpu().numpy())
             output = np.concatenate(output_list, 0)
-            output = split_combo.combine(output, nzhw=nzhw)
+            output = split_combine.combine(output, nzhw=nzhw)
             if output_feature:
                 feature = np.concatenate(feature_list, 0).transpose([0, 2, 3, 4, 1])[:, :, :, :, :, np.newaxis]
-                feature = split_combo.combine(feature, net_config['side_len'])[..., 0]
+                feature = split_combine.combine(feature, net_config['side_len'])[..., 0]
 
             thresh = args.testthresh  # -8 #-3
             # log.info(output)
@@ -345,6 +345,7 @@ def test(data_loader, net, get_pbb, args, net_config, epoch):
             np.save(os.path.join(save_dir, name + '_pbb.npy'), pbb)
             np.save(os.path.join(save_dir, name + '_lbb.npy'), lbb)
         np.save(os.path.join(save_dir, 'namelist.npy'), namelist)
+    log.info('Done. Epoch: %d' % epoch)
 
 
 def normal_lost_list(tensor_list):
