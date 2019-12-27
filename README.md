@@ -15,7 +15,7 @@ Key|Default|Desc
 |--weight-decay|1e-4|weight decay|
 |--save-freq|1|保存频率|
 |--resume|1|是否从断点继续，不继续会删除之前的记录|
-|--resume-epoch|-1|从哪个epoch继续，-1代表最新|
+|--start-epoch|-1|从哪个epoch继续，-1代表最新|
 |--testthresh|-3|threshold for get pbb|
 |--split|8|In the test phase, split the image to 8 parts|
 |--gpu|all|用哪个gpu|

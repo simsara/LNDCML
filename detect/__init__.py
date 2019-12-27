@@ -104,16 +104,16 @@ def try_resume(net, args, para: bool = False):
     if args.resume == 0:
         shutil.rmtree(save_dir, True)  # 不继续 将之前的记录删掉
         return
-    resume_epoch = args.resume_epoch
-    if resume_epoch == -1:
+    start_epoch = args.start_epoch
+    if start_epoch == -1:
         file_list = os.listdir(save_dir)
         vali_file_list = [f for f in file_list if f.endswith('.ckpt')]
         vali_file_list.sort()
         if len(vali_file_list) > 0:
             last_file_name = vali_file_list[len(vali_file_list) - 1]
-            resume_epoch = int(last_file_name[:-5])
-    file_name = file.get_net_save_file_path_name(args, resume_epoch)
-    args.start_epoch = resume_epoch
+            start_epoch = int(last_file_name[:-5])
+    file_name = file.get_net_save_file_path_name(args, start_epoch)
+    args.start_epoch = start_epoch
     if os.path.exists(file_name):
         log.info('Resuming model from: %s' % file_name)
         checkpoint = torch.load(file_name)
@@ -126,7 +126,7 @@ def try_resume(net, args, para: bool = False):
         else:
             net.load_state_dict(checkpoint['state_dict'])
     else:
-        log.info('No saved file. ID: %s. Epoch: %s' % (args.id, resume_epoch))
+        log.info('No saved file. ID: %s. Epoch: %s' % (args.id, start_epoch))
 
 
 def common_init(args):
@@ -284,8 +284,8 @@ def run_test():
     args.nd_test = 1
     config, net, loss, get_pbb = common_init(args)
     data_loader = get_test_loader(args, config)
-    for ep in range(1, args.epochs + 1):
-        args.resume_epoch = ep
+    for ep in range(args.start_epoch, args.epochs + 1):
+        args.start_epoch = ep
         try_resume(net, args, para=True)
         test(data_loader, net, get_pbb, args, config, ep)
 

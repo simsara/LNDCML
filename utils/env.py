@@ -21,7 +21,7 @@ parser.add_argument('--save-freq', default='1', type=int, metavar='S',
                     help='save frequency')
 parser.add_argument('--resume', default=1, type=int, metavar='N',
                     help='是否继续上一次的模型，不继续会删除之前的记录')
-parser.add_argument('--resume-epoch', default=-1, type=int, metavar='N',
+parser.add_argument('--start-epoch', default=-1, type=int, metavar='N',
                     help='从上一次的哪个epoch开始，-1代表最新')
 parser.add_argument('--testthresh', default=-3, type=float,
                     help='threshold for get pbb')
