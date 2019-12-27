@@ -24,9 +24,9 @@ results_path = '/home/lwq/netsave/dpn3d26/deeplung/' # val' #val' ft96'+'/val'#
 sideinfopath = '/home/lwq/dataset/luna16/data/subset1/'  # subset'+str(fold)+'/'  +str(fold)
 datapath = '/home/lwq/dataset/luna16/subset/subset1/'  # subset'+str(fold)+'/'
 
-maxeps = 1  #03 #150 #100
+maxeps = 2  #03 #150 #100
 eps = range(1, maxeps + 1,1)  # 6,7,1)#5,151,5)#5,151,5)#76,77,1)#40,41,1)#76,77,1)#1,101,1)#17,18,1)#38,39,1)#1, maxeps+1, 1) #maxeps+1, 1)
-detp = [-2]  # , -0.5, 0]#, 0.5, 1]#, 0.5, 1] #range(-1, 0, 1)
+detp = [-2,-1]  # , -0.5, 0]#, 0.5, 1]#, 0.5, 1] #range(-1, 0, 1)
 isvis = False  # True
 nmsthresh = 0.1  # 非极大值抑制的阈值设置
 nprocess = 1  # 4 线程的个数
@@ -136,26 +136,37 @@ def getfroc(detp, eps):  # 阈值和epoch
     for ep in eps:  # 对每个epoch分别处理
         #bboxpath = results_path + str(ep) + '/'
         bboxpath = results_path + 'bbox/'
+        print('result path : ',results_path)
+        print('bbox path : ',bboxpath)
         predannofnamalist = []
         for detpthresh in detp:  # 对于阈值列表中的每一个阈值
             #predannofnamalist.append(bboxpath + 'predanno' + str(detpthresh) + 'pbb.csv')
             predannofnamalist.append(bboxpath + 'predanno' + str(detpthresh) + 'd3.csv')
-        print(results_path)
-        print(bboxpath)
+
+        #froclist = p.map(getfrocvalue, predannofnamalist)  # 得到当前epoch的所有froc值
+        #froclist = [getfrocvalue(predanno) for predanno in predannofnamalist]
+        froclist = []
+        for predanno in predannofnamalist:
+            _, sens, _, _, _, _, _ = getfrocvalue(predanno)
+            print(max(sens))
+            froclist.append(max(sens))
+        print('result path : ',results_path)
+        print('bbox path : ',bboxpath)
         print('predannofnamalist : ')
         print(predannofnamalist)
-        froclist = p.map(getfrocvalue, predannofnamalist)  # 得到当前epoch的所有froc值
         print('froclist : ')
         print(froclist)
+
         if maxfroc < max(froclist):  # 如果记录的maxfroc值小于当前epoch的froclist的最大值
             maxep = ep  # 更新maxep
             maxfroc = max(froclist)  # 更新maxfroc
         print('froclist : ')
         print(froclist)
+        print('detp0 : ' + str(detp[0]))
+        print('detp1 : ' + str(detp[1]))
         for detpthresh in detp:  # TODO 没看懂这个循环在干嘛
-            # print len(froclist), int((detpthresh-detp[0])/(detp[1]-detp[0]))
-            frocarr[(ep - eps[0]) / (eps[1] - eps[0]), int((detpthresh - detp[0]) / (detp[1] - detp[0]))] = \
-                froclist[int((detpthresh - detp[0]) / (detp[1] - detp[0]))]
+            print(len(froclist), int((detpthresh-detp[0])/(detp[1]-detp[0])))
+            frocarr[(ep - eps[0]) / (eps[1] - eps[0]), int((detpthresh - detp[0]) / (detp[1] - detp[0]))] = froclist[int((detpthresh - detp[0]) / (detp[1] - detp[0]))]
             print('ep', ep, 'detp', detpthresh, froclist[int((detpthresh - detp[0]) / (detp[1] - detp[0]))])
     print(maxfroc, maxep)
 

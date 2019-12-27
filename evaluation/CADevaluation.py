@@ -303,7 +303,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             if diameter < 0.0:
                 diameter = 10.0
             radiusSquared = pow((diameter / 2.0), 2.0)  # 半径的平方
-            print('radiusSquared : ' + str(radiusSquared))
+            #print('radiusSquared : ' + str(radiusSquared))
 
             found = False
             noduleMatches = []
@@ -313,11 +313,11 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
                 z2 = float(candidate.coordZ)
 
                 dist = math.pow(x - x2, 2.) + math.pow(y - y2, 2.) + math.pow(z - z2, 2.)  # 计算两个结节中心的距离的平方
-                print('dist : ' + str(dist))
+                #print('dist : ' + str(dist))
 
                 if dist < radiusSquared:  # 判断是否在半径距离内
-                    print('dist : ' + str(dist))
-                    print('radiusSquared : ' + str(radiusSquared))
+                    #print('dist : ' + str(dist))
+                    #print('radiusSquared : ' + str(radiusSquared))
                     if (noduleAnnot.state == "Included"):  # 如果是用来检测的结节，匹配成功
                         found = True
                         noduleMatches.append(candidate)
@@ -433,6 +433,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             f.write("%d,%.9f\n" % (FROCGTList[i], FROCProbList[i]))
 
     fps_itp = np.linspace(FROC_minX, FROC_maxX, num=10001)
+    print('fps_itp : ')
 
     sens_itp = np.interp(fps_itp, fps, sens)
     frvvlu = 0
@@ -442,6 +443,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             frvvlu += ss
             nxth *= 2
         if abs(nxth - 16) < 1e-5: break
+    print('frvvlu/7  nxth ： ')
     print(frvvlu / 7, nxth)
     print(sens_itp[fps_itp == 0.125] + sens_itp[fps_itp == 0.25] + sens_itp[fps_itp == 0.5] + sens_itp[fps_itp == 1] +
           sens_itp[fps_itp == 2] \
@@ -485,12 +487,13 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
 
         # set your ticks manually
         ax.xaxis.set_ticks([0.125, 0.25, 0.5, 1, 2, 4, 8])
-        ax.yaxis.set_ticks(np.arange(0.5, 1, 0.1))
-        # ax.yaxis.set_ticks(np.arange(0, 1.1, 0.1))
+        #ax.yaxis.set_ticks(np.arange(0.5, 1, 0.1))
+        ax.yaxis.set_ticks(np.arange(0, 1.1, 0.1))
         plt.grid(b=True, which='both')
         plt.tight_layout()
 
         plt.savefig(os.path.join(outputDir, "froc_%s.png" % CADSystemName), bbox_inches=0, dpi=300)
+        #print(fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up)
 
     return (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up)
 
@@ -588,10 +591,11 @@ def noduleCADEvaluation(annotations_filename, annotations_excluded_filename, ser
     print(222,outputDir)
 
     # 根据结节，用户，结果文件，输出froc值
-    evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules,
+    fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up = evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules,
                 os.path.splitext(os.path.basename(results_filename))[0],
                 maxNumberOfCADMarks=100, performBootstrapping=bPerformBootstrapping,
                 numberOfBootstrapSamples=bNumberOfBootstrapSamples, confidence=bConfidence)
+    return fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up
 
 
 if __name__ == '__main__':
