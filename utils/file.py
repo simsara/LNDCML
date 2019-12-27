@@ -91,8 +91,4 @@ def get_eval_save_path(args, epoch, detp_thresh):
 
 
 def get_predanno_file_name(args, epoch, detp_thresh):
-    return os.path.join(get_eval_save_path(args, epoch, detp_thresh), 'predanno.csv' % str(detp_thresh))
-
-
-def get_cad_eval_result_file_name(args, epoch, detp_thresh):
-    return os.path.join(get_net_bbox_save_path(args, epoch), 'd%s_cad.txt' % str(detp_thresh))
+    return os.path.join(get_eval_save_path(args, epoch, detp_thresh), 'predanno.csv')

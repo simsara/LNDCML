@@ -421,7 +421,7 @@ def evaluate_cad(uid_list, results_filename, output_dir, all_nodules, CADSystemN
     all_candidates = get_candidate_dict(uid_list, results_filename, maxNumberOfCADMarks)  # uid -> list[nodule]
     sens, fps, thresholds, FROCGTList, FROCProbList, \
     fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, totalNumberOfNodules = \
-        get_froc_list(output_dir, output_dir, CADSystemName, all_nodules,
+        get_froc_list(all_candidates, output_dir, CADSystemName, all_nodules,
                       performBootstrapping, numberOfBootstrapSamples, confidence,
                       all_candidates)
 

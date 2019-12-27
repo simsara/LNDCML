@@ -1,7 +1,7 @@
-uid_label = 'uid'
-x_label = 'coord_x'
-y_label = 'coord_y'
-z_label = 'coord_z'
+uid_label = 'seriesuid'
+x_label = 'coordX'
+y_label = 'coordY'
+z_label = 'coordZ'
 diameter_mm_label = 'diameter_mm'
 probability_label = 'probability'
 

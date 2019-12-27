@@ -74,11 +74,10 @@ def get_csv(detp, args):  # 给定阈值
     对输出的结果文件调用convert_csv函数处理
     每一个epoch生成一个csv文件，存放80多个测试病例的预测结节位置及概率
     """
-    for ep in range(1, args.epochs + 1):  # 对每一个epoch
+    for ep in range(args.resume_epoch, args.epochs + 1):  # 对每一个epoch
         if not epoch_exists(args, ep):
             continue
         bbox_path = file.get_net_bbox_save_path(args, ep)
-        shutil.rmtree(bbox_path, True)
         log.info('bbox path: %s' % bbox_path)
         for detp_thresh in detp:
             save_file_name = file.get_predanno_file_name(args, ep, detp_thresh)
@@ -104,8 +103,9 @@ def get_csv(detp, args):  # 给定阈值
                 predanno = future.result()
                 result_list.append(predanno)
 
-            for row in result_list:
-                file_writer.writerow(row)
+            for result in result_list:
+                for row in result:
+                    file_writer.writerow(row)
 
             f.close()
             log.info('Finished ep: %d. detp: %3.2f' % (ep, detp_thresh))
@@ -126,7 +126,7 @@ def get_froc(detp, args):  # 阈值和epoch
     """
     max_froc = 0
     max_ep = 0
-    for ep in range(1, args.epochs + 1):  # 对每个epoch分别处理
+    for ep in range(args.resume_epoch, args.epochs + 1):  # 对每个epoch分别处理
         if not epoch_exists(args, ep):
             continue
         future_list = []
