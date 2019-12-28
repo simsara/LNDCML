@@ -21,7 +21,7 @@ font = {'family': 'normal', 'size': 17}
 
 matplotlib.rc('font', **font)
 # Evaluation settings
-bPerformBootstrapping = True
+bPerformBootstrapping = False
 bNumberOfBootstrapSamples = 1000
 bOtherNodulesAsIrrelevant = True
 bConfidence = 0.95
@@ -455,11 +455,11 @@ def draw_froc(output_dir, CADSystemName, performBootstrapping,
             frvvlu += ss
             nxth *= 2
         if abs(nxth - 16) < 1e-5: break
-    log.info(frvvlu / 7, nxth)
-    log.info(
-        sens_itp[fps_itp == 0.125] + sens_itp[fps_itp == 0.25] + sens_itp[fps_itp == 0.5] + sens_itp[fps_itp == 1] +
-        sens_itp[fps_itp == 2] \
-        + sens_itp[fps_itp == 4] + sens_itp[fps_itp == 8])
+    # log.info(frvvlu / 7, nxth)
+    # log.info(
+    #     sens_itp[fps_itp == 0.125] + sens_itp[fps_itp == 0.25] + sens_itp[fps_itp == 0.5] + sens_itp[fps_itp == 1] +
+    #     sens_itp[fps_itp == 2] \
+    #     + sens_itp[fps_itp == 4] + sens_itp[fps_itp == 8])
     if performBootstrapping:
         # Write mean, lower, and upper bound curves to disk
         with open(os.path.join(output_dir, "froc_%s_bootstrapping.csv" % CADSystemName), 'w') as f:
@@ -585,7 +585,9 @@ def nodule_cad_evaluation(annotations_filename, annotations_excluded_filename, s
     (nodules, uid_list) = collect(annotations_filename, annotations_excluded_filename, seriesuids_filename)
 
     # 根据结节，用户，结果文件，输出froc值
-    evaluate_cad(uid_list, results_filename, output_dir, nodules,
-                 os.path.splitext(os.path.basename(results_filename))[0],
-                 maxNumberOfCADMarks=100, performBootstrapping=bPerformBootstrapping,
-                 numberOfBootstrapSamples=bNumberOfBootstrapSamples, confidence=bConfidence)
+    fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up = \
+        evaluate_cad(uid_list, results_filename, output_dir, nodules,
+                     os.path.splitext(os.path.basename(results_filename))[0],
+                     maxNumberOfCADMarks=100, performBootstrapping=bPerformBootstrapping,
+                     numberOfBootstrapSamples=bNumberOfBootstrapSamples, confidence=bConfidence)
+    return fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up

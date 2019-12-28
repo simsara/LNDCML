@@ -82,7 +82,7 @@ def get_csv(detp, args):  # 给定阈值
         for detp_thresh in detp:
             save_file_name = file.get_predanno_file_name(args, ep, detp_thresh)
             log.info('ep: %d. detp: %3.2f. file: %s' % (ep, detp_thresh, save_file_name))
-            f = open(save_file_name, 'w')
+            f = open(save_file_name, 'w', newline='')
             file_writer = csv.writer(f)
             file_writer.writerow(pbb_csv_header)  # 写入的第一行为 用户id 结节坐标x,y,z 结节概率
             pbb_list = []
@@ -129,19 +129,12 @@ def get_froc(detp, args):  # 阈值和epoch
     for ep in range(args.start_epoch, args.epochs + 1):  # 对每个epoch分别处理
         if not epoch_exists(args, ep):
             continue
-        future_list = []
         froc_list = []
         for detp_thresh in detp:  # 对于阈值列表中的每一个阈值
             predanno = file.get_predanno_file_name(args, ep, detp_thresh)
             output_dir = file.get_eval_save_path(args, ep, detp_thresh)
-            if args.multi_process == 1:
-                future_list.append(pool.submit(get_froc_value, predanno_filename=predanno, output_dir=output_dir))
-            else:
-                froc_list.append(get_froc_value(predanno_filename=predanno, output_dir=output_dir))
-
-        for future in future_list:  # type: Future
-            froc = future.result()
-            froc_list.append(froc)
+            _, sens, _, _, _, _, _ = get_froc_value(predanno_filename=predanno, output_dir=output_dir)
+            froc_list = sens
 
         if max(froc_list) > max_froc:
             max_ep = ep  # 更新maxep

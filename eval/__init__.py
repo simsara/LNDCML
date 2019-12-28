@@ -7,5 +7,5 @@ def run_evaluation():
     detp = [-2]
     if args.start_epoch == -1:
         args.start_epoch = 1
-    get_csv(detp, args)
+    # get_csv(detp, args)
     get_froc(detp, args)

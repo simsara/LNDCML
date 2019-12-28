@@ -98,10 +98,9 @@ def get_learning_rate(args, epoch):
 
 
 def try_resume(net, args, para: bool = False):
-    args.start_epoch = 1  # 定义开始的epoch
     save_dir = file.get_net_save_dir(args)
-    args.start_epoch = 0
     if args.resume == 0:
+        args.start_epoch = 1
         shutil.rmtree(save_dir, True)  # 不继续 将之前的记录删掉
         return
     start_epoch = args.start_epoch
