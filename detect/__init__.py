@@ -344,7 +344,7 @@ def test(data_loader, net, get_pbb, args, net_config, epoch):
                 np.save(os.path.join(save_dir, '%s_feature.npy' % name), feature_selected)
             np.save(os.path.join(save_dir, '%s_pbb.npy' % name), pbb)
             np.save(os.path.join(save_dir, '%s_lbb.npy' % name), lbb)
-        np.save(os.path.join(save_dir, 'namelist.npy'), namelist)
+        np.save(file.get_uid_list_filename(args, epoch), namelist)
     log.info('Done. Epoch: %d' % epoch)
 
 

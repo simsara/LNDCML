@@ -81,6 +81,10 @@ def get_net_bbox_save_path(args, epoch):
         os.makedirs(epoch_dir)
     return epoch_dir
 
+def get_uid_list_filename(args, epoch):
+    bbox_path = get_net_bbox_save_path(args, epoch)
+    return os.path.join(bbox_path, 'namelist.npy')
+
 
 def get_eval_save_path(args, epoch, detp_thresh):
     parent_dir = get_net_bbox_save_path(args, epoch)

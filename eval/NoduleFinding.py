@@ -18,3 +18,9 @@ class NoduleFinding(object):
         self.state = state
         self.candidateID = None
         self.seriesuid = seriesInstanceUID
+
+    def included(self):
+        return self.state == 'Included'
+
+    def excluded(self):
+        return self.state == 'Excluded'

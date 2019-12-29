@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from detect.netdef import get_common_config
-from detect.netdef.bottleneck import Bottleneck
+from detect.netdef.res_bn import Bottleneck
 from detect.netdef.loss import Loss
 from detect.netdef.pbb import GetPBB
 

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class Bottleneck(nn.Module):
-    def __init__(self, last_planes, in_planes, out_planes, dense_depth, stride, first_layer, attention_module = None):
+    def __init__(self, last_planes, in_planes, out_planes, dense_depth, stride, first_layer, attention_module=None):
         super(Bottleneck, self).__init__()
         self.out_planes = out_planes
         self.dense_depth = dense_depth

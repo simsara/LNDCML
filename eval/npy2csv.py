@@ -1,16 +1,15 @@
 import csv
 import os
-import shutil
 from concurrent.futures import Future
 
 import numpy as np
 
-from eval.csv_label import pbb_csv_header
 from eval.CADevaluation import nodule_cad_evaluation
-from utils.tools import VoxelToWorldCoord, load_itk_image, nms
+from eval.csv_label import pbb_csv_header
 from utils import file
 from utils.log import get_logger
 from utils.threadpool import pool
+from utils.tools import VoxelToWorldCoord, load_itk_image, nms
 
 log = get_logger(__name__)
 
@@ -111,12 +110,11 @@ def get_csv(detp, args):  # 给定阈值
             log.info('Finished ep: %d. detp: %3.2f' % (ep, detp_thresh))
 
 
-def get_froc_value(predanno_filename, output_dir):
+def get_froc_value(predanno_filename, output_dir, uid_list):
     annotations = file.get_luna_csv_name('annotations.csv')
     annotation_exclude = file.get_luna_csv_name('annotations_excluded.csv')
-    seriesuids = file.get_luna_csv_name('seriesuids.csv')
 
-    return nodule_cad_evaluation(annotations, annotation_exclude, seriesuids, predanno_filename, output_dir)
+    return nodule_cad_evaluation(annotations, annotation_exclude, uid_list, predanno_filename, output_dir)
 
 
 # 每个epoch都会对应一个csv文件，要选取一个最好的结果，选取标准为froc值
@@ -129,11 +127,12 @@ def get_froc(detp, args):  # 阈值和epoch
     for ep in range(args.start_epoch, args.epochs + 1):  # 对每个epoch分别处理
         if not epoch_exists(args, ep):
             continue
+        uid_list = np.load(file.get_uid_list_filename(args, ep))
         froc_list = []
         for detp_thresh in detp:  # 对于阈值列表中的每一个阈值
             predanno = file.get_predanno_file_name(args, ep, detp_thresh)
             output_dir = file.get_eval_save_path(args, ep, detp_thresh)
-            _, sens, _, _, _, _, _ = get_froc_value(predanno_filename=predanno, output_dir=output_dir)
+            _, sens, _, _, _, _, _ = get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list)
             froc_list = sens
 
         if max(froc_list) > max_froc:
