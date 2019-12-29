@@ -1,7 +1,5 @@
 import os
 
-import SimpleITK as SimpleITK
-
 import numpy as np
 import pandas
 from scipy.ndimage.interpolation import zoom

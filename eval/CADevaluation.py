@@ -277,7 +277,6 @@ def get_froc_list(uid_list, output_dir, CADSystemName, all_nodules,
             if diameter < 0.0:
                 diameter = 10.0
             radiusSquared = pow((diameter / 2.0), 2.0)  # 半径的平方
-            log.info('radiusSquared : ' + str(radiusSquared))
 
             found = False
             noduleMatches = []
@@ -287,15 +286,11 @@ def get_froc_list(uid_list, output_dir, CADSystemName, all_nodules,
                 z2 = float(candidate.coordZ)
 
                 dist = math.pow(x - x2, 2.) + math.pow(y - y2, 2.) + math.pow(z - z2, 2.)  # 计算两个结节中心的距离的平方
-                log.info('dist : ' + str(dist))
 
                 if dist < radiusSquared:  # 判断是否在半径距离内
-                    log.info('dist : ' + str(dist))
-                    log.info('radiusSquared : ' + str(radiusSquared))
                     if (noduleAnnot.state == "Included"):  # 如果是用来检测的结节，匹配成功
                         found = True
                         noduleMatches.append(candidate)
-                        log.info('--------found!-------')
 
                         if key not in candidates2.keys():  # 把每个与注释结节相交的候选结节提取出来后，要删除副本中的id，以此检测是否有其他注释结节与该候选结节相交
                             log.info(

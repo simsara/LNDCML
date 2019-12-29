@@ -1,11 +1,11 @@
-'''Dual Path Networks in PyTorch.'''
 import torch
 
 import detect.netdef.dpn_basic as dpn
+from detect.netdef.cbam import CBAM
 
 
 def get_model():
-    return dpn.get_model()
+    return dpn.get_model(CBAM)
 
 
 if __name__ == '__main__':

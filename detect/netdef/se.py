@@ -14,6 +14,6 @@ class SE3(nn.Module):
 
     def forward(self, x):
         b, c, _, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1, 1, 1)
-        return x * y.expand_as(x)
+        squeeze = self.avg_pool(x).view(b, c)  # b * c * 1 -> b * c
+        excitation = self.fc(squeeze).view(b, c, 1, 1, 1)
+        return x * excitation.expand_as(x)
