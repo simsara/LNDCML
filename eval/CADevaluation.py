@@ -457,7 +457,7 @@ def draw_froc(output_dir, CADSystemName,
         plt.xlabel('Average number of false positives per scan')
         plt.ylabel('Sensitivity')
         plt.legend(loc='lower right')
-        plt.title('FROC performance - %s' % (CADSystemName))
+        plt.title('FROC performance - %s' % CADSystemName)
 
         plt.xscale('log', basex=2)
         ax.xaxis.set_major_formatter(FixedFormatter([0.125, 0.25, 0.5, 1, 2, 4, 8]))

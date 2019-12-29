@@ -24,22 +24,21 @@ class ChannelGate(nn.Module):
         self.avg_pool = nn.AdaptiveAvgPool3d(1)
         self.max_mlp = MLP(channel, reduction)
         self.avg_mlp = MLP(channel, reduction)
-        self.pool = {}
-        self.mlp = {}
-        for pool_type in self.pool_types:
-            if pool_type == 'avg':
-                self.pool[pool_type] = self.avg_pool
-                self.mlp[pool_type] = self.avg_mlp
-            elif pool_type == 'max':
-                self.pool[pool_type] = self.max_pool
-                self.mlp[pool_type] = self.max_mlp
 
     def forward(self, x):
         b, c, _, _, _ = x.size()
         channel_att_sum = None
+
         for pool_type in self.pool_types:
-            pool = self.pool[pool_type](x).view(b, c)
-            channel_att_raw = self.mlp[pool_type](pool)
+            channel_att_raw = None
+            if pool_type == 'avg':
+                pool = self.avg_pool(x).view(b, c)
+                channel_att_raw = self.avg_mlp(pool)
+            elif pool_type == 'max':
+                pool = self.max_pool(x).view(b, c)
+                channel_att_raw = self.max_mlp(pool)
+            if channel_att_raw is None:
+                continue
             if channel_att_sum is None:
                 channel_att_sum = channel_att_raw
             else:
