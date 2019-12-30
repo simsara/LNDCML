@@ -11,7 +11,7 @@ def get_common_config():
     config['chanel'] = 1
     config['crop_size'] = [96, 96, 96]
     config['stride'] = 4
-    config['max_stride'] = 12
+    config['max_stride'] = 16
     config['num_neg'] = 800
     config['num_pos'] = 800
     config['th_neg'] = 0.02
@@ -27,8 +27,8 @@ def get_common_config():
     config['r_rand_crop'] = 0.3
     config['pad_value'] = 170
     config['augtype'] = {'flip': True, 'swap': False, 'scale': True, 'rotate': False}
-    config['side_len'] = 72
-    config['margin'] = 12
+    config['side_len'] = 96
+    config['margin'] = 16
     config['blacklist'] = ['868b024d9fa388b7ddab12ec1c06af38',
                            '990fbe3f0a1b53878669967b9afd1441',
                            'adc3bbc63d40f8761c59be10f1e504c3']
