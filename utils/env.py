@@ -1,6 +1,9 @@
 import argparse
 import os
 
+def num_arr(value):
+    return [float(i) for i in value.split(',') if i != '']
+
 parser = argparse.ArgumentParser(description='LNDCML')
 parser.add_argument('--job', metavar='JOB', default='train', help='prepare/train')
 parser.add_argument('--model', '-m', metavar='MODEL', default='res18', help='模型名称 res18 / dpn3d26')
@@ -37,6 +40,10 @@ parser.add_argument('--nd-test', default=1, type=int, metavar='N',
                     help='用多少个文件夹测试')
 parser.add_argument('--multi-process', default=0, type=int, metavar='N',
                     help='是否多线程执行 可用阶段 eval')
+parser.add_argument('--eval-detp', default=[-1, -1.5], type=num_arr, metavar='N',
+                    help='eval所用的detp')
+
+
 
 
 def get_args():

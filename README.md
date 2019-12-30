@@ -23,6 +23,7 @@ Key|Default|Desc
 |--nd-train|8|用多少个文件夹去训练|
 |--nd-test|1|用多少个文件夹去测试|
 |--multi-process|0|是否多线程执行 可用阶段 eval|
+|--eval-detp|,-1,-1.5|evaluation时候用的detp list 注意逗号开头|
 
 # 环境变量
 ## 数据预处理部分

@@ -68,7 +68,7 @@ def convert_csv(bbox_name, bbox_path, detp):  # 给定pbb.npy的文件名，路�
     return row_list
 
 
-def get_csv(detp, args):  # 给定阈值
+def get_csv(args):  # 给定阈值
     """
     对输出的结果文件调用convert_csv函数处理
     每一个epoch生成一个csv文件，存放80多个测试病例的预测结节位置及概率
@@ -78,7 +78,7 @@ def get_csv(detp, args):  # 给定阈值
             continue
         bbox_path = file.get_net_bbox_save_path(args, ep)
         log.info('bbox path: %s' % bbox_path)
-        for detp_thresh in detp:
+        for detp_thresh in args.eval_detp:
             save_file_name = file.get_predanno_file_name(args, ep, detp_thresh)
             log.info('ep: %d. detp: %3.2f. file: %s' % (ep, detp_thresh, save_file_name))
             f = open(save_file_name, 'w', newline='')
@@ -118,7 +118,7 @@ def get_froc_value(predanno_filename, output_dir, uid_list):
 
 
 # 每个epoch都会对应一个csv文件，要选取一个最好的结果，选取标准为froc值
-def get_froc(detp, args):  # 阈值和epoch
+def get_froc(args):  # 阈值和epoch
     """
     根据pbb生成的csv
     """
@@ -129,7 +129,7 @@ def get_froc(detp, args):  # 阈值和epoch
             continue
         uid_list = np.load(file.get_uid_list_filename(args, ep))
         froc_list = []
-        for detp_thresh in detp:  # 对于阈值列表中的每一个阈值
+        for detp_thresh in args.eval_detp:  # 对于阈值列表中的每一个阈值
             predanno = file.get_predanno_file_name(args, ep, detp_thresh)
             output_dir = file.get_eval_save_path(args, ep, detp_thresh)
             _, sens, _, _, _, _, _ = get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list)
