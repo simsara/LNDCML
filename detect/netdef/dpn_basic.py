@@ -12,9 +12,10 @@ config = get_common_config()
 
 
 class DPN(nn.Module):
-    def __init__(self, cfg, attention=None):
+    def __init__(self, cfg, attention=None, **kwargs):
         super(DPN, self).__init__()
         self.attention = attention
+        self.kwargs = kwargs
 
         # 得到参数
         in_planes, out_planes = cfg['in_planes'], cfg['out_planes']
@@ -70,7 +71,8 @@ class DPN(nn.Module):
         layers = []
         for i, stride in enumerate(strides):  # i=0,stride=4 i=1,stride=1
             layers.append(
-                Bottleneck(self.last_planes, in_planes, out_planes, dense_depth, stride, i == 0, self.attention))
+                Bottleneck(self.last_planes, in_planes, out_planes, dense_depth, stride, i == 0, self.attention,
+                           **self.kwargs))
             self.last_planes = out_planes + (i + 2) * dense_depth  # 每经过两个DPN模块，last_planes增加24
         return nn.Sequential(*layers)  # 将每一个模块按顺序送入到nn.Sequential中
 
@@ -95,18 +97,18 @@ class DPN(nn.Module):
         return out  # , out_1
 
 
-def DPN92_3D(attention_module=None):
+def DPN92_3D(attention_module=None, **kwargs):
     cfg = {
         'in_planes': (24, 48, 72, 96),  # (96,192,384,768) feature map的个数
         'out_planes': (24, 48, 72, 96),
         'num_blocks': (2, 2, 2, 2),  # 2DPN为一个blocks
         'dense_depth': (8, 8, 8, 8)  # d=8
     }
-    return DPN(cfg, attention_module)
+    return DPN(cfg, attention_module, **kwargs)
 
 
-def get_model(attention_module=None):
-    net = DPN92_3D(attention_module)
+def get_model(attention_module=None, **kwargs):
+    net = DPN92_3D(attention_module, **kwargs)
     loss = Loss(config['num_hard'])  # 使用hard mining策略
     get_pbb = GetPBB(config)  # probability of bounding box
     return config, net, loss, get_pbb

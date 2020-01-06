@@ -4,7 +4,8 @@ import torch.nn.functional as F
 
 
 class Bottleneck(nn.Module):
-    def __init__(self, last_planes, in_planes, out_planes, dense_depth, stride, first_layer, attention_module=None):
+    def __init__(self, last_planes, in_planes, out_planes, dense_depth, stride, first_layer, attention_module=None,
+                 **kwargs):
         super(Bottleneck, self).__init__()
         self.out_planes = out_planes
         self.dense_depth = dense_depth
@@ -28,7 +29,7 @@ class Bottleneck(nn.Module):
                 nn.BatchNorm3d(out_planes + dense_depth)
             )
         if attention_module is not None:
-            self.attention = attention_module(channel=out_planes, reduction=2)
+            self.attention = attention_module(channel=out_planes, reduction=2, **kwargs)
         else:
             self.attention = None
 

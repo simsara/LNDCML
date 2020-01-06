@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class MLP(nn.Module):
@@ -64,15 +65,21 @@ class SpatialGate(nn.Module):
 
 
 class CBAM(nn.Module):
-    def __init__(self, channel, reduction=16, pool_types=['avg', 'max'], no_spatial=False):
+    def __init__(self, channel, reduction=16, pool_types=['avg', 'max'], sequence=1):
         super(CBAM, self).__init__()
+        self.seq = sequence
         self.ChannelGate = ChannelGate(channel, reduction, pool_types)
-        self.no_spatial = no_spatial
-        if not no_spatial:
-            self.SpatialGate = SpatialGate()
+        self.SpatialGate = SpatialGate()
+        self.conv = nn.Conv3d(channel, channel, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn = nn.BatchNorm3d(channel)
 
     def forward(self, x):
-        x_out = self.ChannelGate(x)
-        if not self.no_spatial:
-            x_out = self.SpatialGate(x_out)
-        return x_out
+        if self.seq == 1:
+            return self.SpatialGate(self.ChannelGate(x))
+        elif self.seq == 2:
+            return self.ChannelGate(self.SpatialGate(x))
+        else:
+            c_out = self.ChannelGate(x)
+            s_out = self.SpatialGate(x)
+            out = c_out + s_out
+            return F.relu(self.bn(self.conv(out)))
