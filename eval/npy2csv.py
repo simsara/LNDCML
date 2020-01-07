@@ -122,7 +122,7 @@ def get_froc(args):  # 阈值和epoch
         for detp_thresh in args.eval_detp:  # 对于阈值列表中的每一个阈值
             predanno = file.get_predanno_file_name(args, ep, detp_thresh)
             output_dir = file.get_eval_save_path(args, ep, detp_thresh)
-            froc_list = get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list)
+            froc_list.append(get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list))
 
         if max(froc_list) > max_froc:
             max_ep = ep  # 更新maxep

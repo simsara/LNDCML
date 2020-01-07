@@ -460,11 +460,8 @@ def draw_and_return(output_dir, CADSystemName,
 
     frocv = 0
     curfp = 0.125  # 0.25 0.5 1 2 4 8
-    # print(len(fps_bs_itp))
-    # print(len(sens_bs_mean))
     for fp, se in zip(fps_itp, sens_itp):  # fps_bs_itp sens_bs_mean):
         if fp >= curfp:
-            print(se)
             frocv += se
             curfp *= 2
             if curfp == 16:
