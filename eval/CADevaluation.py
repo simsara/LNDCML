@@ -434,7 +434,7 @@ def draw_and_return(output_dir, CADSystemName,
             graphTitle = str("")
             ax = plt.gca()
             # clr = 'b'
-            plt.plot(fps_itp, sens_itp, color=clr, label=cap, lw=2)  # cap
+            plt.plot(fps_itp, sens_itp, color='b', label='', lw=2)  # cap
             # if performBootstrapping:
             # plt.plot(fps_bs_itp, sens_bs_mean, color=clr, ls='--')
             # plt.plot(fps_bs_itp, sens_bs_lb, color=clr, ls=':') # , label = "lb")

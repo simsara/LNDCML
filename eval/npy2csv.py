@@ -32,21 +32,11 @@ def convert_csv(bbox_name, bbox_path, detp):  # 给定pbb.npy的文件名，路�
     extendbox = np.load(extend_file_name, mmap_mode='r')  # 肺实质的拓展box
     pbb = np.load(os.path.join(bbox_path, bbox_name), mmap_mode='r')  # pbb.npy文件
 
-    log.info('[%s] origin pbb. Shape: %s. Max: %3.2f. Min: %3.2f' %
-             (uid, pbb.shape, max(pbb[:, 0]), min(pbb[:, 0])))
-
     pbbold = np.array(pbb[pbb[:, 0] > detp])  # 根据阈值过滤掉概率低的
     pbbold = np.array(pbbold[pbbold[:, -1] > 3])  # add new 9 15 根据半径过滤掉小于3mm的
-    log.info('[%s] pbb after >3. Shape: %s. Max: %3.2f. Min: %3.2f' %
-             (uid, pbbold.shape, max(pbbold[:, 0]), min(pbbold[:, 0])))
 
-    # pbbold = pbbold[np.argsort(-pbbold[:, 0])][:10000]  # 取概率值前1000的结节，不然直接进行nms太耗时
-    # print("after sort bboxs : ",len(pbbold))
     pbb = nms(pbbold, nms_thresh)  # 对输出的结节进行nms
-    # print("after nms bboxs : ", len(pbb))
-    # print(bboxfname, pbbold.shape, pbb.shape, pbbold.shape)
     pbb = np.array(pbb[:, :-1])  # 去掉直径
-    # print pbb[:, 0]
 
     # 对输出加上拓展box的坐标，其实就是恢复为原来的坐标
     pbb[:, 1:] = np.array(pbb[:, 1:] + np.expand_dims(extendbox[:, 0], 1).T)  # TODO
