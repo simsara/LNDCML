@@ -5,7 +5,7 @@ from detect.netdef.cbam import CBAM
 
 
 def get_model():
-    return dpn.get_model(CBAM, reduction=2)
+    return dpn.get_model(CBAM)
 
 
 if __name__ == '__main__':
