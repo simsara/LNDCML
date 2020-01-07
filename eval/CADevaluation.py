@@ -368,6 +368,7 @@ def get_froc_list(uid_list, output_dir, CADSystemName, all_nodules,
         raise ValueError('Length of FROC vectors not the same')
 
     # 计算froc，返回的是召回率和假阳性率的列表
+    log.info('gt: %d. froc: %d. uid: %d. exclude: %d' % (len(froc_gt_list), len(froc_prob_list), len(uid_list), len(excludeList)))
     fps, sens, thresholds = computeFROC(froc_gt_list, froc_prob_list, len(uid_list), excludeList)
 
     fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up = \
@@ -530,6 +531,7 @@ def collect_nodule_annotations(annotations, annotations_excluded, uid_list):
 def collect(annotations_filename, annotations_excluded_filename, uid_list):
     annotations = read_csv(annotations_filename)
     annotations_excluded = read_csv(annotations_excluded_filename)
+    log.info('Uid list: %s' % str(uid_list))
 
     all_nodule = collect_nodule_annotations(annotations, annotations_excluded, uid_list)
 

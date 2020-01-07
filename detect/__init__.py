@@ -24,7 +24,10 @@ def get_file_list(args):
     test_files = []
     train_dir_count = 0
     test_dir_count = 0
-    for subset in os.listdir(luna_data_dir):
+    subset_arr = os.listdir(luna_data_dir)
+    list.sort(subset_arr)
+    for subset in subset_arr:
+        log.info(subset)
         if not subset.startswith('subset'):
             continue
         arr_to_append = None
@@ -255,6 +258,7 @@ def validate(data_loader, net, loss):
 
 def get_test_loader(args, net_config):
     train_files, test_files = get_file_list(args)
+    log.info(test_files)
     data_dir = env.get('preprocess_result_path')
 
     split_combine = SplitCombine(net_config['side_len'], net_config['max_stride'], net_config['stride'],
