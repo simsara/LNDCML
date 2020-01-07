@@ -27,7 +27,6 @@ def get_file_list(args):
     subset_arr = os.listdir(luna_data_dir)
     list.sort(subset_arr)
     for subset in subset_arr:
-        log.info(subset)
         if not subset.startswith('subset'):
             continue
         arr_to_append = None
