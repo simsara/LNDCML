@@ -368,7 +368,8 @@ def get_froc_list(uid_list, output_dir, CADSystemName, all_nodules,
         raise ValueError('Length of FROC vectors not the same')
 
     # 计算froc，返回的是召回率和假阳性率的列表
-    log.info('gt: %d. froc: %d. uid: %d. exclude: %d' % (len(froc_gt_list), len(froc_prob_list), len(uid_list), len(excludeList)))
+    log.info('gt: %d. froc: %d. uid: %d. exclude: %d' % (
+    len(froc_gt_list), len(froc_prob_list), len(uid_list), len(excludeList)))
     fps, sens, thresholds = computeFROC(froc_gt_list, froc_prob_list, len(uid_list), excludeList)
 
     fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up = \
@@ -397,80 +398,78 @@ def evaluate_cad(uid_list, results_filename, output_dir, all_nodules, CADSystemN
         get_froc_list(uid_list, output_dir, CADSystemName, all_nodules, numberOfBootstrapSamples, confidence,
                       all_candidates)
 
-    draw_froc(output_dir, CADSystemName,
-              sens, fps, thresholds, FROCGTList, FROCProbList,
-              fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, totalNumberOfNodules)
-
-    return fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up
+    return draw_and_return(output_dir, CADSystemName,
+                           sens, fps, thresholds, FROCGTList, FROCProbList,
+                           fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, totalNumberOfNodules)
 
 
-def draw_froc(output_dir, CADSystemName,
+def draw_and_return(output_dir, CADSystemName,
               sens, fps, thresholds, FROCGTList, FROCProbList,
               fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, totalNumberOfNodules):
-    # -----------------------------------------画图FROC--------------------------------------------
     with open(os.path.join(output_dir, "froc_%s.txt" % CADSystemName), 'w') as f:
-        for candidate_count in range(len(sens)):
-            f.write("%.9f,%.9f,%.9f\n" % (fps[candidate_count], sens[candidate_count], thresholds[candidate_count]))
-
+        for i in range(len(sens)):
+            f.write("%.9f,%.9f,%.9f\n" % (fps[i], sens[i], thresholds[i]))
     # Write FROC vectors to disk as well
     with open(os.path.join(output_dir, "froc_gt_prob_vectors_%s.csv" % CADSystemName), 'w') as f:
-        for candidate_count in range(len(FROCGTList)):
-            f.write("%d,%.9f\n" % (FROCGTList[candidate_count], FROCProbList[candidate_count]))
-
+        for i in range(len(FROCGTList)):
+            f.write("%d,%.9f\n" % (FROCGTList[i], FROCProbList[i]))
     fps_itp = np.linspace(FROC_minX, FROC_maxX, num=10001)
-
     sens_itp = np.interp(fps_itp, fps, sens)
     frvvlu = 0
     nxth = 0.125
+    retsens = 0
     for fp, ss in zip(fps_itp, sens_itp):
         if abs(fp - nxth) < 3e-4:
             frvvlu += ss
             nxth *= 2
-        if abs(nxth - 16) < 1e-5:
-            break
-
+            retsens = ss
+        if abs(nxth - 16) < 1e-5: break
     # Write mean, lower, and upper bound curves to disk
     with open(os.path.join(output_dir, "froc_%s_bootstrapping.csv" % CADSystemName), 'w') as f:
         f.write("FPrate,Sensivity[Mean],Sensivity[Lower bound],Sensivity[Upper bound]\n")
-        for candidate_count in range(len(fps_bs_itp)):
-            f.write("%.9f,%.9f,%.9f,%.9f\n" % (
-                fps_bs_itp[candidate_count], sens_bs_mean[candidate_count], sens_bs_lb[candidate_count],
-                sens_bs_up[candidate_count]))
-
-    # create FROC graphs
-    if int(totalNumberOfNodules) > 0:
-        graphTitle = str("")
-        fig1 = plt.figure()
-        ax = plt.gca()
-        clr = 'b'
-        plt.plot(fps_itp, sens_itp, color=clr, label="%s" % CADSystemName, lw=2)
-
-        # bootstrap part
-        plt.plot(fps_bs_itp, sens_bs_mean, color=clr, ls='--')
-        plt.plot(fps_bs_itp, sens_bs_lb, color=clr, ls=':')  # , label = "lb")
-        plt.plot(fps_bs_itp, sens_bs_up, color=clr, ls=':')  # , label = "ub")
-        ax.fill_between(fps_bs_itp, sens_bs_lb, sens_bs_up, facecolor=clr, alpha=0.05)
-
-        xmin = FROC_minX
-        xmax = FROC_maxX
-        plt.xlim(xmin, xmax)
-        plt.ylim(0.5, 1)
-        plt.xlabel('Average number of false positives per scan')
-        plt.ylabel('Sensitivity')
-        plt.legend(loc='lower right')
-        plt.title('FROC performance - %s' % CADSystemName)
-
-        plt.xscale('log', basex=2)
-        ax.xaxis.set_major_formatter(FixedFormatter([0.125, 0.25, 0.5, 1, 2, 4, 8]))
-
+        for i in range(len(fps_bs_itp)):
+            f.write("%.9f,%.9f,%.9f,%.9f\n" % (fps_bs_itp[i], sens_bs_mean[i], sens_bs_lb[i], sens_bs_up[i]))
+        # create FROC graphs
+        if int(totalNumberOfNodules) > 0:
+            graphTitle = str("")
+            ax = plt.gca()
+            # clr = 'b'
+            plt.plot(fps_itp, sens_itp, color=clr, label=cap, lw=2)  # cap
+            # if performBootstrapping:
+            # plt.plot(fps_bs_itp, sens_bs_mean, color=clr, ls='--')
+            # plt.plot(fps_bs_itp, sens_bs_lb, color=clr, ls=':') # , label = "lb")
+            # plt.plot(fps_bs_itp, sens_bs_up, color=clr, ls=':') # , label = "ub")
+            # ax.fill_between(fps_bs_itp, sens_bs_lb, sens_bs_up, facecolor=clr, alpha=0.05)
+            xmin = FROC_minX
+            xmax = FROC_maxX
+            plt.xlim(xmin, xmax)
+            plt.ylim(0.65, 1)
+            plt.xlabel('Average number of false positives per scan')
+            plt.ylabel('Sensitivity')
+            plt.legend(loc='lower right')
+            plt.title('FROC - 3D Res18 and DPN26')  # %s' % (CADSystemName))
+            plt.xscale('log', basex=2)
+            ax.xaxis.set_major_formatter(FixedFormatter([0.125, 0.25, 0.5, 1, 2, 4, 8]))
         # set your ticks manually
         ax.xaxis.set_ticks([0.125, 0.25, 0.5, 1, 2, 4, 8])
-        ax.yaxis.set_ticks(np.arange(0.5, 1, 0.1))
+        ax.yaxis.set_ticks(np.arange(0.65, 1, 0.1))
         # ax.yaxis.set_ticks(np.arange(0, 1.1, 0.1))
         plt.grid(b=True, which='both')
         plt.tight_layout()
-
         plt.savefig(os.path.join(output_dir, "froc_%s.png" % CADSystemName), bbox_inches=0, dpi=300)
+
+    frocv = 0
+    curfp = 0.125  # 0.25 0.5 1 2 4 8
+    # print(len(fps_bs_itp))
+    # print(len(sens_bs_mean))
+    for fp, se in zip(fps_itp, sens_itp):  # fps_bs_itp sens_bs_mean):
+        if fp >= curfp:
+            print(se)
+            frocv += se
+            curfp *= 2
+            if curfp == 16:
+                break
+    return frocv / 7
 
 
 def get_nodule(annotation, header, state=""):
@@ -553,8 +552,6 @@ def nodule_cad_evaluation(annotations_filename, annotations_excluded_filename, u
     nodules = collect(annotations_filename, annotations_excluded_filename, uid_list)
 
     # 根据结节，用户，结果文件，输出froc值
-    fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up = \
-        evaluate_cad(uid_list, results_filename, output_dir, nodules,
-                     os.path.splitext(os.path.basename(results_filename))[0],
-                     maxNumberOfCADMarks=100)
-    return fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up
+    return evaluate_cad(uid_list, results_filename, output_dir, nodules,
+                        os.path.splitext(os.path.basename(results_filename))[0],
+                        maxNumberOfCADMarks=100)
