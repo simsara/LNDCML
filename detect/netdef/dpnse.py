@@ -6,7 +6,7 @@ from detect.netdef.se import SE3
 
 
 def get_model():
-    return dpn.get_model(SE3)
+    return dpn.get_model(SE3, reduction=2)
 
 
 if __name__ == '__main__':
