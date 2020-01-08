@@ -30,7 +30,8 @@ class Bottleneck(nn.Module):
         else:
             self.shortcut = nn.Sequential()
         if attention_module is not None:
-            self.attention = attention_module(channel=out_planes, reduction=2, **kwargs)
+            x_planes = out_planes + dense_depth if first_layer else last_planes
+            self.attention = attention_module(channel=x_planes+dense_depth, reduction=2, **kwargs)
         else:
             self.attention = None
 
@@ -51,9 +52,9 @@ class Bottleneck(nn.Module):
         output_add_part = out[:, :d, :, :, :]
         output_dense_part = out[:, d:, :, :, :]
         # SE
-        if self.attention is not None:
-            output_add_part = self.attention(output_add_part)
         # [x[:d]+F(x)[:d],x[d:],F(x)[d:]]
         out = torch.cat([x[:, :d, :, :, :] + output_add_part, x[:, d:, :, :, :], output_dense_part], 1)
         out = F.relu(out)  # y
+        if self.attention is not None:
+            out = self.attention(out)
         return out
