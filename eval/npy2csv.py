@@ -49,7 +49,6 @@ def convert_csv(bbox_name, bbox_path, detp):  # 给定pbb.npy的文件名，路�
         pbb[:, 2] = mask.shape[1] - pbb[:, 2]
         pbb[:, 3] = mask.shape[2] - pbb[:, 3]
     pos = VoxelToWorldCoord(pbb[:, 1:], origin, spacing)  # 将输出转化为世界坐标
-    log.info('[%s] voxel to world finished. Shape: %s' % (uid, pos.shape))
 
     row_list = []
     for nk in range(pos.shape[0]):  # 每一个结节：文件名，z,y,x，是结节的概率(经过sigmoid处理)
@@ -78,7 +77,6 @@ def get_csv(args):  # 给定阈值
             for file_name in os.listdir(bbox_path):  # bboxpath目录下的所有文件和文件夹
                 if file_name.endswith('_pbb.npy'):  # 找到以_pbb.npy结尾的文件(结节概率文件)，添加进文件列表
                     pbb_list.append(file_name)
-            log.info('Pbb size: %d' % len(pbb_list))
 
             future_list = []
             result_list = []
@@ -131,7 +129,7 @@ def get_froc(args):  # 阈值和epoch
         log.info('Epoch: %03d. Froc list: %s' % (ep, froc_list))
 
         # TODO 跳过了一个看不懂的循环
-    log.info('Max froc: %3.2f. Max epoch: %03d' % (max_froc, max_ep))
+    log.info('Max froc: %3.10f. Max epoch: %03d' % (max_froc, max_ep))
 
 
 def epoch_exists(args, epoch) -> bool:
