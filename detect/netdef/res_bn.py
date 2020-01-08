@@ -22,12 +22,13 @@ class Bottleneck(nn.Module):
         self.conv3 = nn.Conv3d(in_planes, out_planes + dense_depth, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm3d(out_planes + dense_depth)
 
-        self.shortcut = nn.Sequential()
         if first_layer:
             self.shortcut = nn.Sequential(
                 nn.Conv3d(last_planes, out_planes + dense_depth, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm3d(out_planes + dense_depth)
             )
+        else:
+            self.shortcut = nn.Sequential()
         if attention_module is not None:
             self.attention = attention_module(channel=out_planes, reduction=2, **kwargs)
         else:

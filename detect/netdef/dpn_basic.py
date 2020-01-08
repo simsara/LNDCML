@@ -22,15 +22,15 @@ class DPN(nn.Module):
         num_blocks, dense_depth = cfg['num_blocks'], cfg['dense_depth']
 
         # [96*96*96*1] [conv 24 3*3*3] [96*96*96*24]
-        self.conv1 = nn.Conv3d(1, 24, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv3d(1, 24, kernel_size=3, stride=1, padding=1, bias=False) # 96 * 24
         self.bn1 = nn.BatchNorm3d(24)
         self.last_planes = 24
 
         # 2*4个DPN blocks
-        self.layer1 = self._make_layer(in_planes[0], out_planes[0], num_blocks[0], dense_depth[0], stride=2)  # stride=1
-        self.layer2 = self._make_layer(in_planes[1], out_planes[1], num_blocks[1], dense_depth[1], stride=2)
-        self.layer3 = self._make_layer(in_planes[2], out_planes[2], num_blocks[2], dense_depth[2], stride=2)
-        self.layer4 = self._make_layer(in_planes[3], out_planes[3], num_blocks[3], dense_depth[3], stride=2)
+        self.layer1 = self._make_layer(in_planes[0], out_planes[0], num_blocks[0], dense_depth[0], stride=2)  # 48 * 48
+        self.layer2 = self._make_layer(in_planes[1], out_planes[1], num_blocks[1], dense_depth[1], stride=2)  # 24 * 72
+        self.layer3 = self._make_layer(in_planes[2], out_planes[2], num_blocks[2], dense_depth[2], stride=2)  # 12 * 96
+        self.layer4 = self._make_layer(in_planes[3], out_planes[3], num_blocks[3], dense_depth[3], stride=2)  # 6 * 120
 
         self.last_planes = 216  # 本来self.last_planess是120的，不符合网络设计了，于是自己指定为96+120
 
@@ -67,9 +67,9 @@ class DPN(nn.Module):
 
     # 两个DPN模块
     def _make_layer(self, in_planes, out_planes, num_blocks, dense_depth, stride):
-        strides = [stride] + [1] * (num_blocks - 1)  # [4,1]=[4]+[1]*(2-1)
+        strides = [stride] + [1] * (num_blocks - 1)  # [2,1]=[2]+[1]*(2-1)
         layers = []
-        for i, stride in enumerate(strides):  # i=0,stride=4 i=1,stride=1
+        for i, stride in enumerate(strides):  # i=0,stride=2 i=1,stride=1
             layers.append(
                 Bottleneck(self.last_planes, in_planes, out_planes, dense_depth, stride, i == 0, self.attention,
                            **self.kwargs))
