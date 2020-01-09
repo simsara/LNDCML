@@ -27,8 +27,10 @@ class DPN(nn.Module):
         self.last_planes = 24
 
         # 2*4个DPN blocks
-        self.layer1 = self._make_layer(in_planes[0], out_planes[0], num_blocks[0], dense_depth[0], stride=2)  # 48 * 48
-        self.layer2 = self._make_layer(in_planes[1], out_planes[1], num_blocks[1], dense_depth[1], stride=2)  # 24 * 72
+        self.layer1 = self._make_layer(in_planes[0], out_planes[0], num_blocks[0], dense_depth[0], stride=2,
+                                       attention=self.attention)  # 48 * 48
+        self.layer2 = self._make_layer(in_planes[1], out_planes[1], num_blocks[1], dense_depth[1], stride=2,
+                                       attention=self.attention)  # 24 * 72
         self.layer3 = self._make_layer(in_planes[2], out_planes[2], num_blocks[2], dense_depth[2], stride=2)  # 12 * 96
         self.layer4 = self._make_layer(in_planes[3], out_planes[3], num_blocks[3], dense_depth[3], stride=2)  # 6 * 120
 
@@ -39,7 +41,7 @@ class DPN(nn.Module):
         self.last_planes = 224 + 3
 
         # 2个DPN
-        self.layer6 = self._make_layer(224, 224, num_blocks[1], dense_depth[1], stride=1)
+        self.layer6 = self._make_layer(224, 224, num_blocks[1], dense_depth[1], stride=1, attention=self.attention)
 
         # Linear(in_features=120, out_features=2)，定义一个linear层 TODO 好像没用到？
         self.linear = nn.Linear(out_planes[3] + (num_blocks[3] + 1) * dense_depth[3], 2)  # 10)
@@ -66,12 +68,12 @@ class DPN(nn.Module):
                                     nn.Conv3d(64, 5 * len(config['anchors']), kernel_size=1))
 
     # 两个DPN模块
-    def _make_layer(self, in_planes, out_planes, num_blocks, dense_depth, stride):
+    def _make_layer(self, in_planes, out_planes, num_blocks, dense_depth, stride, attention=None):
         strides = [stride] + [1] * (num_blocks - 1)  # [2,1]=[2]+[1]*(2-1)
         layers = []
         for i, stride in enumerate(strides):  # i=0,stride=2 i=1,stride=1
             layers.append(
-                Bottleneck(self.last_planes, in_planes, out_planes, dense_depth, stride, i == 0, self.attention,
+                Bottleneck(self.last_planes, in_planes, out_planes, dense_depth, stride, i == 0, attention,
                            **self.kwargs))
             self.last_planes = out_planes + (i + 2) * dense_depth  # 每经过两个DPN模块，last_planes增加24
         return nn.Sequential(*layers)  # 将每一个模块按顺序送入到nn.Sequential中
