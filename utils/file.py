@@ -1,4 +1,3 @@
-# 根据网络名称和id获取保存路径
 import os
 
 from utils import env
@@ -96,3 +95,7 @@ def get_eval_save_path(args, epoch, detp_thresh):
 
 def get_predanno_file_name(args, epoch, detp_thresh):
     return os.path.join(get_eval_save_path(args, epoch, detp_thresh), 'predanno.csv')
+
+
+def get_cls_data_path():
+    return env.get('cls_data')
