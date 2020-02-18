@@ -174,10 +174,10 @@ def get_loader(args):
     trainset = lunanod(preprocesspath,
                        trfnamelst[0:train_file_size], trlabellst[0:train_file_size], trfeatlst[0:train_file_size],
                        train=True, transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=30)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=30)
 
     testset = lunanod(preprocesspath, tefnamelst, telabellst, tefeatlst, train=False, transform=transform_test)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=16, shuffle=False, num_workers=30)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=30)
     log.info('[Used] Size of train files: %d. Size of test files: %d.' % (len(trainset), len(testset)))
     return trainloader, testloader
 
