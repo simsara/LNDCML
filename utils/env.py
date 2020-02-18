@@ -42,6 +42,8 @@ parser.add_argument('--multi-process', default=0, type=int, metavar='N',
                     help='是否多线程执行 可用阶段 eval')
 parser.add_argument('--eval-detp', default=[-1, -1.5], type=num_arr, metavar='N',
                     help='eval所用的detp')
+parser.add_argument('--cls-train-file-size', default=-1, type=int, metavar='N',
+                    help='cls的train用多少个文件，-1为全部')
 
 
 

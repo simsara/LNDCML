@@ -52,6 +52,10 @@ def get_mask_file_path_name(uid):
     return get_file_path_name_by_uid(get_preprocess_result_path(), uid, '_mask.npy')
 
 
+def get_clean_file_path_name(uid):
+    return get_file_path_name_by_uid(get_preprocess_result_path(), uid, '_clean.npy')
+
+
 def get_net_save_dir(args):
     parent_dir = env.get('net_save_dir')
     if not os.path.exists(parent_dir):
@@ -80,6 +84,7 @@ def get_net_bbox_save_path(args, epoch):
         os.makedirs(epoch_dir)
     return epoch_dir
 
+
 def get_uid_list_filename(args, epoch):
     bbox_path = get_net_bbox_save_path(args, epoch)
     return os.path.join(bbox_path, 'namelist.npy')
@@ -99,3 +104,25 @@ def get_predanno_file_name(args, epoch, detp_thresh):
 
 def get_cls_data_path():
     return env.get('cls_data')
+
+
+def get_cls_corp_path():
+    return env.get('cls_corp')
+
+
+def get_cls_net_save_dir(args):
+    parent_dir = env.get('net_save_dir')
+    if not os.path.exists(parent_dir):
+        os.mkdir(parent_dir)
+    cls_dir = os.path.join(parent_dir, 'cls')
+    if not os.path.exists(cls_dir):
+        os.mkdir(cls_dir)
+    net_dir = os.path.join(cls_dir, args.model)
+    if not os.path.exists(net_dir):
+        os.mkdir(net_dir)
+    return net_dir
+
+
+def get_cls_net_save_file_path_name(args, epoch):
+    save_dir = get_cls_net_save_dir(args)
+    return os.path.join(save_dir, '%03d.ckpt' % epoch)

@@ -1,4 +1,5 @@
 import detect
+import nodcls
 import prepare
 import eval as evaluation
 from utils import env
@@ -15,5 +16,9 @@ if __name__ == '__main__':
         detect.run_validate()
     elif args.job == 'eval':
         evaluation.run_evaluation()
+    elif args.job == 'cls-prepare':
+        nodcls.preprocess()
+    elif args.job == 'cls-train':
+        nodcls.run_train()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)

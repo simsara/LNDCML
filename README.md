@@ -24,6 +24,7 @@ Key|Default|Desc
 |--nd-test|1|用多少个文件夹去测试|
 |--multi-process|0|是否多线程执行 可用阶段 eval|
 |--eval-detp|,-1,-1.5|evaluation时候用的detp list 注意逗号开头|
+|--cls-train-file-size|-1|cls的train用多少个文件，-1为全部|
 
 # 环境变量
 ## 数据预处理部分
@@ -34,6 +35,7 @@ Key|Value|Desc
 |luna_csv|your-path-of-luna|存放csv的地方|
 |preprocess_result_path|your-path-of-luna|保存预处理文件的路径|
 |cls_data|your-path-of-cls|分类数据文件夹|
+|cls_corp|your-path-of-cls-corp|分类时corp存放的文件夹|
 
 ### 示例
 luna_segment=G:\workspace\LNDCML\LUNA16\seg-lungs-LUNA16

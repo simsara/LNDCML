@@ -1,20 +1,12 @@
 from __future__ import print_function
-from PIL import Image
+
 import os
 import os.path
-import errno
-import numpy as np
-import sys
-if sys.version_info[0] == 2:
-    import cPickle as pickle
-else:
-    import pickle
-import torch
-import torch.utils.data as data
-from torch.autograd import Variable
-# from .utils import download_url, check_integrity
 
-# npypath = '/media/data1/wentao/tianchi/luna16/cls/crop_v3/'
+import numpy as np
+import torch.utils.data as data
+
+
 class lunanod(data.Dataset):
     """`CIFAR10 <https://www.cs.toronto.edu/~kriz/cifar.html>`_ Dataset.
 
@@ -32,6 +24,7 @@ class lunanod(data.Dataset):
             downloaded again.
 
     """
+
     def __init__(self, npypath, fnamelst, labellst, featlst, train=True,
                  transform=None, target_transform=None,
                  download=False):
@@ -62,13 +55,13 @@ class lunanod(data.Dataset):
             for label, fentry in zip(labellst, fnamelst):
                 # print('label, fentry', label, fentry)#0 1.3.6.1.4.1.14519.5.2.1.6279.6001.262736997975960398949912434623-0-0.npy
                 # if fentry.shape[0] != 32 or fentry.shape[1] != 32 or fentry.shape[2] != 32:
-                    # print(fentry.shape, type(fentry), type(fentry)!='str')
+                # print(fentry.shape, type(fentry), type(fentry)!='str')
                 # if type(fentry) != 'str':
-                    # self.test_data.append(fentry)
-                    # self.test_labels.append(label)
-                    # print('1')
+                # self.test_data.append(fentry)
+                # self.test_labels.append(label)
+                # print('1')
                 # else:
-                if 1>0:
+                if 1 > 0:
                     file = os.path.join(npypath, fentry)
                     self.test_data.append(np.load(file))
                     self.test_labels.append(label)
@@ -78,7 +71,7 @@ class lunanod(data.Dataset):
             # self.test_labels = np.asarray(self.test_labels)
             # self.test_data = self.test_data.transpose((0, 2, 3, 4, 1))  # convert to HWZC
             self.test_len = len(fnamelst)
-            
+
             # print('self.test_data.shape, len(self.test_labels), len(self.test_feat)',self.test_data.shape, len(self.test_labels), len(self.test_feat))
 
     def __getitem__(self, index):
