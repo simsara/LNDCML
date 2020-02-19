@@ -28,7 +28,6 @@ class lunanod(data.Dataset):
     def __init__(self, npypath, fnamelst, labellst, featlst, train=True,
                  transform=None, target_transform=None,
                  download=False):
-        # print('npypath, fnamelst, labellst, featlst',len(featlst))#/home/zhaojie/zhaojie/Lung/data/luna16/cls/crop_v3/,'1.3.6.1.4.1.14519.5.2.1.6279.6001.275986221854423197884953496664-995-995.npy',[0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0],array([0.82352941, 0.83137255, 0.8627451 , ..., 0.83921569, 0.82745098,0.14162028])
         self.transform = transform
         self.target_transform = target_transform
         self.train = train  # training set or test set
@@ -43,36 +42,20 @@ class lunanod(data.Dataset):
                 self.train_labels.append(label)
 
             self.train_data = np.concatenate(self.train_data)
-            # print('self.train_data.shape',self.train_data.shape, len(fnamelst))#29184, 32, 32) 912
             self.train_data = self.train_data.reshape((len(fnamelst), 32, 32, 32))
-            # self.train_labels = np.asarray(self.train_labels)
-            # self.train_data = self.train_data.transpose((0, 2, 3, 4, 1))  # convert to HWZC
             self.train_len = len(fnamelst)
         else:
             self.test_data = []
             self.test_labels = []
             self.test_feat = featlst
             for label, fentry in zip(labellst, fnamelst):
-                # print('label, fentry', label, fentry)#0 1.3.6.1.4.1.14519.5.2.1.6279.6001.262736997975960398949912434623-0-0.npy
-                # if fentry.shape[0] != 32 or fentry.shape[1] != 32 or fentry.shape[2] != 32:
-                # print(fentry.shape, type(fentry), type(fentry)!='str')
-                # if type(fentry) != 'str':
-                # self.test_data.append(fentry)
-                # self.test_labels.append(label)
-                # print('1')
-                # else:
-                if 1 > 0:
-                    file = os.path.join(npypath, fentry)
-                    self.test_data.append(np.load(file))
-                    self.test_labels.append(label)
-            # print('self.test_data.shape',len(self.test_data))#92
+                file = os.path.join(npypath, fentry)
+                self.test_data.append(np.load(file))
+                self.test_labels.append(label)
+
             self.test_data = np.concatenate(self.test_data)
             self.test_data = self.test_data.reshape((len(fnamelst), 32, 32, 32))
-            # self.test_labels = np.asarray(self.test_labels)
-            # self.test_data = self.test_data.transpose((0, 2, 3, 4, 1))  # convert to HWZC
             self.test_len = len(fnamelst)
-
-            # print('self.test_data.shape, len(self.test_labels), len(self.test_feat)',self.test_data.shape, len(self.test_labels), len(self.test_feat))
 
     def __getitem__(self, index):
         """
@@ -86,22 +69,12 @@ class lunanod(data.Dataset):
             img, target, feat = self.train_data[index], self.train_labels[index], self.train_feat[index]
         else:
             img, target, feat = self.test_data[index], self.test_labels[index], self.test_feat[index]
-        # img = torch.from_numpy(img) 
-        # img = img.cuda(async = True)
-
-        # doing this so that it is consistent with all other datasets
-        # to return a PIL Image
-        # print('1', img.shape, type(img))
-        # img = Image.fromarray(img)
-        # print('2', img.size)
 
         if self.transform is not None:
             img = self.transform(img)
 
         if self.target_transform is not None:
             target = self.target_transform(target)
-        # print('img.shape, target.shape, feat.shape',img.shape, target, len(feat))#torch.Size([1, 32, 32, 32]) 0 32769
-        # print(target)
 
         return img, target, feat
 
