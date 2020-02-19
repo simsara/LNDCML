@@ -191,7 +191,7 @@ def try_resume(net, args, para: bool = False):
         if len(vali_file_list) > 0:
             last_file_name = vali_file_list[len(vali_file_list) - 1]
             start_epoch = int(last_file_name[:-5])
-    file_name = file.get_net_save_file_path_name(args, start_epoch)
+    file_name = file.get_cls_net_save_file_path_name(args, start_epoch)
     args.start_epoch = start_epoch
     if os.path.exists(file_name):
         log.info('Resuming model from: %s' % file_name)
