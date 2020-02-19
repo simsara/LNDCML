@@ -36,7 +36,6 @@ def preprocess():
         os.mkdir(save_path)
     for idx in range(len(id_l)):
         fname = id_l[idx]
-        # if fname != '1.3.6.1.4.1.14519.5.2.1.6279.6001.119209873306155771318545953948-581': continue
         pid = fname.split('-')[0]
         crdx = int(float(x_l[idx]))
         crdy = int(float(y_l[idx]))
@@ -47,7 +46,7 @@ def preprocess():
         bgx = max(0, crdx - corp_size // 2)
         bgy = max(0, crdy - corp_size // 2)
         bgz = max(0, crdz - corp_size // 2)
-        cropdata = np.ones((corp_size, corp_size, corp_size)) * 170
+        cropdata = np.ones((corp_size, corp_size, corp_size)) * 170  # 170对应归一化后的水
         cropdatatmp = np.array(data[0, bgx:bgx + corp_size, bgy:bgy + corp_size, bgz:bgz + corp_size])
         cropdata[
         corp_size // 2 - cropdatatmp.shape[0] // 2:corp_size // 2 - cropdatatmp.shape[0] // 2 + cropdatatmp.shape[0], \
@@ -149,17 +148,11 @@ def get_file_list():
             trfeatlst.append(feat)
 
     for idx in range(len(trfeatlst)):
-        # trfeatlst[idx][0] /= mxx
-        # trfeatlst[idx][1] /= mxy
-        # trfeatlst[idx][2] /= mxz
-        # print(trfeatlst[idx][-1],mxd)
         trfeatlst[idx][-1] /= mxd
     for idx in range(len(tefeatlst)):
-        # tefeatlst[idx][0] /= mxx
-        # tefeatlst[idx][1] /= mxy
-        # tefeatlst[idx][2] /= mxz
         tefeatlst[idx][-1] /= mxd
-    log.info('[Existed] Size of train files: %d. Size of test files: %d.' % (len(trfnamelst), len(tefnamelst)))  # 912 92
+    log.info(
+        '[Existed] Size of train files: %d. Size of test files: %d.' % (len(trfnamelst), len(tefnamelst)))  # 912 92
 
     return trfnamelst, trlabellst, trfeatlst, tefnamelst, telabellst, tefeatlst
 
@@ -174,10 +167,12 @@ def get_loader(args):
     trainset = lunanod(preprocesspath,
                        trfnamelst[0:train_file_size], trlabellst[0:train_file_size], trfeatlst[0:train_file_size],
                        train=True, transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=30)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
+                                              shuffle=True, num_workers=args.workers)
 
     testset = lunanod(preprocesspath, tefnamelst, telabellst, tefeatlst, train=False, transform=transform_test)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=30)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size,
+                                             shuffle=False, num_workers=args.workers)
     log.info('[Used] Size of train files: %d. Size of test files: %d.' % (len(trainset), len(testset)))
     return trainloader, testloader
 
@@ -240,10 +235,19 @@ def run_train():
     net, loss, opt = get_net(args)
     save_freq = args.save_freq
     save_dir = file.get_cls_net_save_dir(args)
-    for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
-        m = train(net, loss, opt, train_loader, epoch)
 
-        if epoch % save_freq == 0:
+    best_acc = 0  # best test accuracy
+    best_acc_gbt = 0
+
+    for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
+        m = GradientBoostingClassifier(max_depth=1, random_state=0)
+        train(net, loss, opt, train_loader, epoch, m)
+        acc, gbt = test(net, loss, test_loader, m)
+
+        if acc > best_acc:
+            best_acc = acc
+
+        if gbt > best_acc_gbt:
             state_dict = net.module.state_dict()
             for key in state_dict.keys():
                 state_dict[key] = state_dict[key].cpu()
@@ -251,19 +255,21 @@ def run_train():
                 'epoch': epoch,
                 'save_dir': save_dir,
                 'state_dict': state_dict,
-                'args': args},
+                'args': args,
+                'acc': acc},
                 file.get_cls_net_save_file_path_name(args, epoch))
-            log.info('Saved. Epoch [%d]' % epoch)
+            log.info('Saved epoch %d' % epoch)
+            best_acc_gbt = gbt
     pass
 
 
-def train(net, criterion, optimizer, train_loader, epoch):
+def train(net, criterion, optimizer, train_loader, epoch, m):
     train_size = len(train_loader.dataset)
-    log.info('Training epoch: %d' % epoch)
     net.train()
     lr = get_learning_rate(epoch)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+    log.info('Training epoch: %d. lr: %.4f' % (epoch, lr))
     train_loss = 0
     correct = 0
     total = 0
@@ -276,15 +282,12 @@ def train(net, criterion, optimizer, train_loader, epoch):
         inputs, targets = Variable(inputs, requires_grad=True), Variable(targets)
         outputs, dfeat = net(inputs)
         # add feature into the array
-        # print(torch.stack(targets).data.numpy().shape, torch.stack(feat).data.numpy().shape)
-        # print((dfeat.data).cpu().numpy().shape)#(16,2560)
         trainfeat[idx:idx + len(targets), :2560] = np.array((dfeat.data).cpu().numpy())  # [4,2560]
         for i in range(len(targets)):
-            trainfeat[idx + i, 2560:] = np.array((Variable(feat[i]).data).cpu().numpy())
-            trainlabel[idx + i] = np.array((targets[i].data).cpu().numpy())
+            trainfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
+            trainlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
         idx += len(targets)
 
-        # print('outputs.shape, targets.shape',outputs.shape, targets.shape)#torch.Size([16, 2]) torch.Size([16])
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
@@ -293,15 +296,45 @@ def train(net, criterion, optimizer, train_loader, epoch):
         total += targets.size(0)
         correct += predicted.eq(targets.data).cpu().sum()
     accout = round(correct.data.cpu().numpy() / total, 4)
-    # print('accout',correct.data.cpu().numpy(),total, accout)
-    print('TrainLoss: %.3f | Acc: %.3f%% (%d/%d)' % (train_loss / (batch_idx + 1), 100. * accout, correct, total))
-    m = GradientBoostingClassifier(max_depth=1, random_state=0)
+
     m.fit(trainfeat, trainlabel)
     gbttracc = round(np.mean(m.predict(trainfeat) == trainlabel), 4)
-    # print('accout1',accout)
-    print('ep ' + str(epoch) + ' tracc ' + str(accout) + ' lr ' + str(lr) + ' gbtacc ' + str(gbttracc))
-    log.info('ep ' + str(epoch) + ' tracc ' + str(accout) + ' lr ' + str(lr) + ' gbtacc ' + str(gbttracc))
+    log.info('Train Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (train_loss / (batch_idx + 1), 100. * accout,
+                                                                     correct, total, gbttracc))
     return m
+
+
+def test(net, criterion, test_loader, m):
+    test_size = len(test_loader.dataset)
+    net.eval()
+    test_loss = 0
+    correct = 0
+    total = 0
+    testfeat = np.zeros((test_size, 2560 + corp_size * corp_size * corp_size + 1))
+    testlabel = np.zeros((test_size,))
+    idx = 0
+    for batch_idx, (inputs, targets, feat) in enumerate(test_loader):
+        inputs, targets = inputs.cuda(), targets.cuda()
+        inputs, targets = Variable(inputs), Variable(targets)
+        outputs, dfeat = net(inputs)
+        # add feature into the array
+        testfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())
+        for i in range(len(targets)):
+            testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
+            testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
+        idx += len(targets)
+
+        loss = criterion(outputs, targets)
+        test_loss += loss.item()
+        _, predicted = torch.max(outputs.data, 1)
+        total += targets.size(0)
+        correct += predicted.eq(targets.data).cpu().sum()
+    accout = round(correct.data.cpu().numpy() / total, 4)
+    gbtteacc = round(np.mean(m.predict(testfeat) == testlabel), 4)
+    log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (test_loss / (batch_idx + 1), 100. * accout,
+                                                                     correct, total, gbtteacc))
+
+    return accout, gbtteacc
 
 
 if __name__ == '__main__':

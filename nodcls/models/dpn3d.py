@@ -3,8 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-debug = False  # True
-
 
 class Bottleneck(nn.Module):
     def __init__(self, last_planes, in_planes, out_planes, dense_depth, stride, first_layer):
@@ -29,18 +27,12 @@ class Bottleneck(nn.Module):
             )
 
     def forward(self, x):
-        # print 'bottleneck_0', x.size(), self.last_planes, self.in_planes, 1
         out = F.relu(self.bn1(self.conv1(x)))
-        # print 'bottleneck_1', out.size(), self.in_planes, self.in_planes, 3
         out = F.relu(self.bn2(self.conv2(out)))
-        # print 'bottleneck_2', out.size(), self.in_planes, self.out_planes+self.dense_depth, 1
         out = self.bn3(self.conv3(out))
-        # print 'bottleneck_3', out.size()
         x = self.shortcut(x)
         d = self.out_planes
-        # print 'bottleneck_4', x.size(), self.last_planes, self.out_planes+self.dense_depth, d
         out = torch.cat([x[:, :d, :, :] + out[:, :d, :, :], x[:, d:, :, :], out[:, d:, :, :]], 1)
-        # print 'bottleneck_5', out.size()
         out = F.relu(out)
         return out
 
@@ -51,14 +43,10 @@ class DPN(nn.Module):
         in_planes, out_planes = cfg['in_planes'], cfg['out_planes']
         num_blocks, dense_depth = cfg['num_blocks'], cfg['dense_depth']
 
-        # self.in_planes = in_planes
-        # self.out_planes = out_planes
-        # self.num_blocks = num_blocks
-        # self.dense_depth = dense_depth
-
         self.conv1 = nn.Conv3d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm3d(64)
         self.last_planes = 64
+
         self.layer1 = self._make_layer(in_planes[0], out_planes[0], num_blocks[0], dense_depth[0], stride=1)
         self.layer2 = self._make_layer(in_planes[1], out_planes[1], num_blocks[1], dense_depth[1], stride=2)
         self.layer3 = self._make_layer(in_planes[2], out_planes[2], num_blocks[2], dense_depth[2], stride=2)
@@ -74,44 +62,16 @@ class DPN(nn.Module):
             # print '_make_layer', i, layers[-1].size()
         return nn.Sequential(*layers)
 
-    def forward(self, x):
-        if debug: print
-        '0', x.size(), 64
-        out = F.relu(self.bn1(self.conv1(x)))
-        if debug: print
-        '1', out.size()
-        out = self.layer1(out)
-        if debug: print
-        '2', out.size()
-        out = self.layer2(out)
-        if debug: print
-        '3', out.size()
-        out = self.layer3(out)
-        if debug: print
-        '4', out.size()
-        out = self.layer4(out)
-        if debug: print
-        '5', out.size()
-        out = F.avg_pool3d(out, 4)
-        if debug: print
-        '6', out.size()
+    def forward(self, x):  # 1 * 32
+        out = F.relu(self.bn1(self.conv1(x)))  # 32 * 64
+        out = self.layer1(out)  # 32 * 320
+        out = self.layer2(out)  # 16 * 672
+        out = self.layer3(out)  # 8 * 1528
+        out = self.layer4(out)  # 4 * 2560
+        out = F.avg_pool3d(out, 4)  # 1 * 2560
         out_1 = out.view(out.size(0), -1)
-        if debug: print
-        '7', out_1.size()
-        out = self.linear(out_1)
-        if debug: print
-        '8', out.size()
+        out = self.linear(out_1)  # 1 * 2
         return out, out_1
-
-
-def DPN26():
-    cfg = {
-        'in_planes': (96, 192, 384, 768),
-        'out_planes': (256, 512, 1024, 2048),
-        'num_blocks': (2, 2, 2, 2),
-        'dense_depth': (16, 32, 24, 128)
-    }
-    return DPN(cfg)
 
 
 def DPN92_3D():
@@ -122,3 +82,10 @@ def DPN92_3D():
         'dense_depth': (16, 32, 24, 128)
     }
     return DPN(cfg)
+
+
+if __name__ == '__main__':
+    test_net = DPN92_3D()
+    dummy = torch.randn(1, 1, 32, 32, 32)
+    test_out, test_out_1 = test_net(dummy)
+    print(test_out)
