@@ -208,11 +208,10 @@ def try_resume(net, args, para: bool = False):
         log.info('No saved file. ID: %s. Epoch: %s' % (args.id, start_epoch))
 
 
-def get_learning_rate(epoch):
-    neptime = 2
-    if epoch < 150 * neptime:
+def get_learning_rate(epoch, max_epoch):
+    if epoch < 0.5 * max_epoch:
         lr = 0.01  # args.lr
-    elif epoch < 250 * neptime:
+    elif epoch < 0.8 * max_epoch:
         lr = 0.001
     else:
         lr = 0.0001
@@ -233,7 +232,6 @@ def run_train():
     args = env.get_args()
     train_loader, test_loader = get_loader(args)
     net, loss, opt = get_net(args)
-    save_freq = args.save_freq
     save_dir = file.get_cls_net_save_dir(args)
 
     best_acc = 0  # best test accuracy
@@ -241,7 +239,7 @@ def run_train():
 
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
         m = GradientBoostingClassifier(max_depth=1, random_state=0)
-        train(net, loss, opt, train_loader, epoch, m)
+        train(net, loss, opt, train_loader, epoch, args.epochs, m)
         acc, gbt = test(net, loss, test_loader, m)
 
         if acc > best_acc:
@@ -263,10 +261,10 @@ def run_train():
     pass
 
 
-def train(net, criterion, optimizer, train_loader, epoch, m):
+def train(net, criterion, optimizer, train_loader, epoch, max_epoch, m):
     train_size = len(train_loader.dataset)
     net.train()
-    lr = get_learning_rate(epoch)
+    lr = get_learning_rate(epoch, max_epoch)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     log.info('Training epoch: %d. lr: %.4f' % (epoch, lr))
