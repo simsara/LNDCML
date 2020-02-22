@@ -1,4 +1,5 @@
 import os
+import random
 import shutil
 from collections import OrderedDict
 
@@ -118,11 +119,14 @@ def get_file_list():
     dimlst = dataframe['diameter_mm'].tolist()[1:]
     # test id
     test_id_list = []
-    for foldnum in range(1):
-        subset_path = os.path.join(file.get_luna_data_path(), 'subset%d' % foldnum)
-        for fname in os.listdir(subset_path):
-            if fname.endswith('.mhd'):
-                test_id_list.append(fname[:-4])
+
+    foldnum = random.randint(0, 9)
+    log.info('Using fold %d to test' % foldnum)
+    subset_path = os.path.join(file.get_luna_data_path(), 'subset%d' % foldnum)
+    for fname in os.listdir(subset_path):
+        if fname.endswith('.mhd'):
+            test_id_list.append(fname[:-4])
+    
     log.info('Size of test id: %d' % len(test_id_list))
     mxx = mxy = mxz = mxd = 0
     for srsid, label, x, y, z, d in zip(alllst, labellst, crdxlst, crdylst, crdzlst, dimlst):
