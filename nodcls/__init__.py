@@ -126,7 +126,7 @@ def get_file_list():
     for fname in os.listdir(subset_path):
         if fname.endswith('.mhd'):
             test_id_list.append(fname[:-4])
-    
+
     log.info('Size of test id: %d' % len(test_id_list))
     mxx = mxy = mxz = mxd = 0
     for srsid, label, x, y, z, d in zip(alllst, labellst, crdxlst, crdylst, crdzlst, dimlst):
@@ -238,18 +238,23 @@ def run_train():
     net, loss, opt = get_net(args)
     save_dir = file.get_cls_net_save_dir(args)
 
-    best_acc = 0  # best test accuracy
-    best_acc_gbt = 0
+    best_tr = 0
+    best_te = 0
 
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
         m = GradientBoostingClassifier(max_depth=1, random_state=0)
-        train(net, loss, opt, train_loader, epoch, args.epochs, m)
-        acc, gbt = test(net, loss, test_loader, m)
+        _, tr = train(net, loss, opt, train_loader, epoch, args.epochs, m)
+        _, te = test(net, loss, test_loader, m)
 
-        if acc > best_acc:
-            best_acc = acc
+        to_save = False
+        if tr > best_tr:
+            best_tr = tr
+            to_save = True
+        if te > best_te:
+            best_te = te
+            to_save = True
 
-        if gbt > best_acc_gbt:
+        if to_save:
             state_dict = net.module.state_dict()
             for key in state_dict.keys():
                 state_dict[key] = state_dict[key].cpu()
@@ -257,12 +262,9 @@ def run_train():
                 'epoch': epoch,
                 'save_dir': save_dir,
                 'state_dict': state_dict,
-                'args': args,
-                'acc': acc},
-                file.get_cls_net_save_file_path_name(args, epoch))
+                'args': args
+            }, file.get_cls_net_save_file_path_name(args, epoch))
             log.info('Saved epoch %d' % epoch)
-            best_acc_gbt = gbt
-    pass
 
 
 def train(net, criterion, optimizer, train_loader, epoch, max_epoch, m):
@@ -303,7 +305,7 @@ def train(net, criterion, optimizer, train_loader, epoch, max_epoch, m):
     gbttracc = round(np.mean(m.predict(trainfeat) == trainlabel), 4)
     log.info('Train Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (train_loss / (batch_idx + 1), 100. * accout,
                                                                      correct, total, gbttracc))
-    return m
+    return accout, gbttracc
 
 
 def test(net, criterion, test_loader, m):
