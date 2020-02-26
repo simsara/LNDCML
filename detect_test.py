@@ -1,17 +1,13 @@
-from utils import tools, gpu
 import matplotlib.pyplot as plt
-from detect.data.split_combine import SplitCombine
-from torch.utils.data import DataLoader
-import time
-from prepare import *
-
-import numpy as np
-from detect.netdef import get_common_config
-from detect import common_init
 import torch
-from detect.data.dataset import DataBowl3Detector
+from torch.utils.data import DataLoader
+
 from detect import netdef, data
 from detect import test
+from detect.data.dataset import DataBowl3Detector
+from detect.data.split_combine import SplitCombine
+from prepare import *
+from utils import tools, gpu
 
 slice_plt = 70
 test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_resources')
