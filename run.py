@@ -1,4 +1,5 @@
 import detect
+import detect_test
 import nodcls
 import prepare
 import eval as evaluation
@@ -20,5 +21,7 @@ if __name__ == '__main__':
         nodcls.preprocess()
     elif args.job == 'cls-train':
         nodcls.run_train()
+    elif args.job == 'detect-prod':
+        detect_test.run()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)

@@ -289,18 +289,17 @@ def run_test():
     for ep in range(args.start_epoch, args.epochs + 1):
         args.start_epoch = ep
         try_resume(net, args, para=True)
-        test(data_loader, net, get_pbb, args, config, ep)
+        save_dir = file.get_net_bbox_save_path(args, ep)
+        test(data_loader, net, get_pbb, args, config, save_dir)
+        log.info('Test Done. Epoch: %d' % ep)
 
 
-def test(data_loader, net, get_pbb, args, net_config, epoch):
-    save_dir = file.get_net_bbox_save_path(args, epoch)
+def test(data_loader, net, get_pbb, args, net_config, save_dir):
     net.eval()
     namelist = []
     split_combine = data_loader.dataset.split_combine
     with torch.no_grad():
         for i_name, (data, target, coord, nzhw, nzhw2) in enumerate(data_loader):
-            target = [np.asarray(t, np.float32) for t in target]
-            lbb = target[0]  # batch_size=1
             nzhw = nzhw[0]
             name = data_loader.dataset.get_uid(i_name)
             namelist.append(name)
@@ -346,9 +345,12 @@ def test(data_loader, net, get_pbb, args, net_config, epoch):
                 feature_selected = feature[mask[0], mask[1], mask[2]]
                 np.save(os.path.join(save_dir, '%s_feature.npy' % name), feature_selected)
             np.save(os.path.join(save_dir, '%s_pbb.npy' % name), pbb)
-            np.save(os.path.join(save_dir, '%s_lbb.npy' % name), lbb)
-        np.save(file.get_uid_list_filename(args, epoch), namelist)
-    log.info('Done. Epoch: %d' % epoch)
+
+            if target is not None:
+                target = [np.asarray(t, np.float32) for t in target]
+                lbb = target[0]  # batch_size=1
+                np.save(os.path.join(save_dir, '%s_lbb.npy' % name), lbb)
+        np.save(os.path.join(save_dir, 'namelist.npy'), namelist)
 
 
 def normal_lost_list(tensor_list):

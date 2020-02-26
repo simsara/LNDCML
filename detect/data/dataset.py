@@ -16,7 +16,7 @@ log = get_logger(__name__)
 
 class DataBowl3Detector(Dataset):
     def __init__(self, data_dir, sample_prefix_list, config, phase='train', split_combine=None):
-        assert (phase == 'train' or phase == 'val' or phase == 'test')
+        assert (phase == 'train' or phase == 'val' or phase == 'test' or phase == 'prod')
         self.phase = phase
         self.max_stride = config['max_stride']
         self.stride = config['stride']
@@ -33,15 +33,20 @@ class DataBowl3Detector(Dataset):
         self.img_file_names = [os.path.join(data_dir, '%s_clean.npy' % idx) for idx in sample_prefix_list]  # 处理完的图像
         labels = []  # 按顺序的标签集
         log.info('Total file size: %s' % len(sample_prefix_list))
-        for idx in sample_prefix_list:
-            label_file_name = os.path.join(data_dir, '%s_label.npy' % idx)  # 结节label
-            label_data = np.load(label_file_name, allow_pickle=True)
-            if np.all(label_data == 0):  # 没有结节
-                label_data = np.array([])
-            labels.append(label_data)
+        if self.phase == 'prod':
+            pass
+        else:
+            for idx in sample_prefix_list:
+                label_file_name = os.path.join(data_dir, '%s_label.npy' % idx)  # 结节label
+                label_data = np.load(label_file_name, allow_pickle=True)
+                if np.all(label_data == 0):  # 没有结节
+                    label_data = np.array([])
+                labels.append(label_data)
 
         self.sample_bboxes = labels
-        if self.phase != 'test':
+        if self.phase == 'prod':
+            pass
+        elif self.phase != 'test':
             self.bboxes = []
             for i, l in enumerate(labels):
                 if len(l) == 0:
@@ -66,13 +71,42 @@ class DataBowl3Detector(Dataset):
 
         is_random_img = False
         random_crop = False
-        if self.phase != 'test':
+        if self.phase == 'prod':
+            pass
+        elif self.phase != 'test':
             if idx >= len(self.bboxes):  # 整张CT里面随机剪 可能没有结节
                 random_crop = True
                 idx = idx % len(self.bboxes)
                 is_random_img = np.random.randint(2)
 
-        if self.phase != 'test':
+        if self.phase == 'prod':
+            img_data = np.load(self.img_file_names[idx])
+            nz, nh, nw = img_data.shape[1:]
+            pz = int(np.ceil(float(nz) / self.stride)) * self.stride
+            ph = int(np.ceil(float(nh) / self.stride)) * self.stride
+            pw = int(np.ceil(float(nw) / self.stride)) * self.stride
+            img_data = np.pad(img_data, [[0, 0], [0, pz - nz], [0, ph - nh], [0, pw - nw]], 'constant',
+                              constant_values=self.pad_value)
+
+            xx, yy, zz = np.meshgrid(np.linspace(-0.5, 0.5, img_data.shape[1] / self.stride),
+                                     np.linspace(-0.5, 0.5, img_data.shape[2] / self.stride),
+                                     np.linspace(-0.5, 0.5, img_data.shape[3] / self.stride), indexing='ij')
+            coord = np.concatenate([xx[np.newaxis, ...], yy[np.newaxis, ...], zz[np.newaxis, :]], 0).astype('float32')
+            img_data, nzhw = self.split_combine.split(img_data, side_len=self.split_combine.side_len,
+                                                      max_stride=self.split_combine.max_stride,
+                                                      margin=self.split_combine.margin)
+            #print(nzhw)
+
+            coord2, nzhw2 = self.split_combine.split(coord,  # python3 python2
+                                                     side_len=int(self.split_combine.side_len / self.stride),
+                                                     max_stride=int(self.split_combine.max_stride / self.stride),
+                                                     margin=int(self.split_combine.margin / self.stride))
+
+            #print(nzhw2)
+            assert np.all(nzhw == nzhw2)
+            img_data = (img_data.astype(np.float32) - 128) / 128  # [0,256] -> [-1,1]
+            return torch.from_numpy(img_data), None, torch.from_numpy(coord2), np.array(nzhw), np.array(nzhw2)
+        elif self.phase != 'test':
             if not is_random_img:
                 bbox = self.bboxes[idx]  # idx, x, y, z, d
                 img_file_name = self.img_file_names[int(bbox[0])]
@@ -124,7 +158,9 @@ class DataBowl3Detector(Dataset):
             return torch.from_numpy(img_data), bboxes, torch.from_numpy(coord2), np.array(nzhw), np.array(nzhw2)
 
     def __len__(self):
-        if self.phase == 'train':
+        if self.phase == 'prod':
+            return len(self.img_file_names)
+        elif self.phase == 'train':
             return math.ceil(len(self.bboxes) / (1 - self.r_rand))  # 随机
         elif self.phase == 'val':
             return len(self.bboxes)

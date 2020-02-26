@@ -44,6 +44,8 @@ parser.add_argument('--eval-detp', default=[-1, -1.5], type=num_arr, metavar='N'
                     help='eval所用的detp')
 parser.add_argument('--cls-train-file-size', default=-1, type=int, metavar='N',
                     help='cls的train用多少个文件，-1为全部')
+parser.add_argument('--prd-file', default='', type=str, metavar='N',
+                    help='使用模型去跑mhd')
 
 
 
