@@ -99,7 +99,7 @@ def get_transform():
     return transform_train, transform_test
 
 
-def get_file_list():
+def get_file_list(args):
     # load data list
     trfnamelst = []
     trlabellst = []
@@ -120,7 +120,9 @@ def get_file_list():
     # test id
     test_id_list = []
 
-    foldnum = random.randint(0, 9)
+    foldnum = args.cls_test_fold_num
+    if foldnum == -1 or foldnum < 0 or foldnum > 9:
+        foldnum = random.randint(0, 9)
     log.info('Using fold %d to test' % foldnum)
     subset_path = os.path.join(file.get_luna_data_path(), 'subset%d' % foldnum)
     for fname in os.listdir(subset_path):
@@ -165,7 +167,7 @@ def get_loader(args):
     train_file_size = args.cls_train_file_size
     preprocesspath = file.get_cls_corp_path()
     transform_train, transform_test = get_transform()
-    trfnamelst, trlabellst, trfeatlst, tefnamelst, telabellst, tefeatlst = get_file_list()
+    trfnamelst, trlabellst, trfeatlst, tefnamelst, telabellst, tefeatlst = get_file_list(args)
     if train_file_size == -1 or train_file_size > len(trfnamelst):
         train_file_size = len(trfnamelst)
     trainset = lunanod(preprocesspath,

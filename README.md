@@ -25,6 +25,7 @@ Key|Default|Desc
 |--multi-process|0|是否多线程执行 可用阶段 eval|
 |--eval-detp|,-1,-1.5|evaluation时候用的detp list 注意逗号开头|
 |--cls-train-file-size|-1|cls的train用多少个文件，-1为全部|
+|--cls-test-fold-num|-1|cls的test用哪个文件夹，-1为随机|
 
 # 环境变量
 ## 数据预处理部分
