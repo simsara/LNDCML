@@ -226,7 +226,8 @@ def get_learning_rate(epoch, max_epoch):
 
 def get_net(args):
     gpu.set_gpu(args.gpu)
-    net = get_model(args.model)
+    model = get_model(args.model)
+    net = model.get_model()
     try_resume(net, args)
     net = torch.nn.DataParallel(net).cuda()
     criterion = nn.CrossEntropyLoss()
