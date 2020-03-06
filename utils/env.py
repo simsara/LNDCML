@@ -1,8 +1,10 @@
 import argparse
 import os
 
+
 def num_arr(value):
     return [float(i) for i in value.split(',') if i != '']
+
 
 parser = argparse.ArgumentParser(description='LNDCML')
 parser.add_argument('--job', metavar='JOB', default='train', help='prepare/train')
@@ -46,8 +48,6 @@ parser.add_argument('--cls-train-file-size', default=-1, type=int, metavar='N',
                     help='cls的train用多少个文件，-1为全部')
 parser.add_argument('--prd-file', default='', type=str, metavar='N',
                     help='使用模型去跑mhd')
-
-
 
 
 def get_args():

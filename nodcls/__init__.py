@@ -12,7 +12,7 @@ from torch.autograd import Variable
 
 from nodcls import transforms
 from nodcls.dataloader import lunanod
-from nodcls.models.dpn3d import DPN92_3D
+from nodcls.models import get_model
 from utils import file, gpu, env
 from utils.log import get_logger
 
@@ -224,7 +224,7 @@ def get_learning_rate(epoch, max_epoch):
 
 def get_net(args):
     gpu.set_gpu(args.gpu)
-    net = DPN92_3D()
+    net = get_model(args.model)
     try_resume(net, args)
     net = torch.nn.DataParallel(net).cuda()
     criterion = nn.CrossEntropyLoss()
