@@ -400,14 +400,14 @@ def find_param_for_gbm():
                           param_grid=epoch_param, scoring='roc_auc', n_jobs=32)
     search.fit(trainfeat, trainlabel)
     log.info('Epoch score: %s. param: %s', str(search.best_score_), str(search.best_params_))
-    n_estimators = 100
+    n_estimators = search.best_params_['n_estimators']
 
     dept_param = {'max_depth': range(3, 10, 1), 'min_samples_split': range(100, 801, 200)}
     search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators),
                           param_grid=dept_param, scoring='roc_auc', n_jobs=32)
     search.fit(trainfeat, trainlabel)
     log.info('Dept score: %s. param: %s', str(search.best_score_), str(search.best_params_))
-    max_depth = search.best_params_.max_depth
+    max_depth = search.best_params_['max_depth']
 
     split_left_param = {'min_samples_split': range(100, 801, 200), 'min_samples_leaf': range(60, 101, 10)}
     search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators,
@@ -415,8 +415,8 @@ def find_param_for_gbm():
                           param_grid=split_left_param, scoring='roc_auc', n_jobs=32)
     search.fit(trainfeat, trainlabel)
     log.info('Split-Leaf score: %s. param: %s', str(search.best_score_), str(search.best_params_))
-    min_samples_split = search.best_params_.min_samples_split
-    min_samples_leaf = search.best_params_.min_samples_leaf
+    min_samples_split = search.best_params_['min_samples_split']
+    min_samples_leaf = search.best_params_['min_samples_leaf']
 
     feature_param = {'max_features': range(7, 20, 2)}
     search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators,
@@ -425,7 +425,7 @@ def find_param_for_gbm():
                           param_grid=feature_param, scoring='roc_auc', n_jobs=32)
     search.fit(trainfeat, trainlabel)
     log.info('Feature score: %s. param: %s', str(search.best_score_), str(search.best_params_))
-    max_features = search.best_params_.max_features
+    max_features = search.best_params_['max_features']
 
     best_param = {
         'random_state': random_state,
