@@ -394,12 +394,12 @@ def find_param_for_gbm():
     trainlabel = np.load(os.path.join(cls_resources_dir, 'train_label.npy'))
     random_state = 6
 
-    epoch_param = {'n_estimators': range(50, 151, 10)}
-    search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state),
-                          param_grid=epoch_param, scoring='roc_auc')
-    search.fit(trainfeat, trainlabel)
-    log.info('Epoch score: %s. param: %s', str(search.best_score_), str(search.best_params_))
-    n_estimators = search.best_params_.n_estimators
+    # epoch_param = {'n_estimators': range(50, 151, 10)}
+    # search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state),
+    #                       param_grid=epoch_param, scoring='roc_auc')
+    # search.fit(trainfeat, trainlabel)
+    # log.info('Epoch score: %s. param: %s', str(search.best_score_), str(search.best_params_))
+    n_estimators = 100
 
     dept_param = {'max_depth': range(3, 10, 1), 'min_samples_split': range(100, 801, 200)}
     search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators),
