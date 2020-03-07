@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.model_selection import GridSearchCV
 from torch import nn, optim
 from torch.autograd import Variable
 
@@ -15,6 +16,8 @@ from nodcls.dataloader import lunanod
 from nodcls.models import get_model
 from utils import file, gpu, env
 from utils.log import get_logger
+
+cls_resources_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'resources')
 
 log = get_logger(__name__)
 corp_size = 32
@@ -245,7 +248,7 @@ def run_train():
     best_te = 0
 
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
-        m = GradientBoostingClassifier(max_depth=1, random_state=0)
+        m = GradientBoostingClassifier(random_state=0)
         _, tr = train(net, loss, opt, train_loader, epoch, args.epochs, m)
         _, te = test(net, loss, test_loader, m)
 
@@ -343,6 +346,95 @@ def test(net, criterion, test_loader, m):
         log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (test_loss / (batch_idx + 1), 100. * accout,
                                                                         correct, total, gbtteacc))
     return accout, gbtteacc
+
+
+def gen_file_for_gbm():
+    args = env.get_args()
+    train_loader, test_loader = get_loader(args)
+    net, loss, opt = get_net(args)
+
+    with torch.no_grad():
+        train_size = len(train_loader.dataset)
+        trainfeat = np.zeros((train_size, 2560 + corp_size * corp_size * corp_size + 1))
+        trainlabel = np.zeros((train_size,))
+        idx = 0
+        for batch_idx, (inputs, targets, feat) in enumerate(train_loader):
+            inputs, targets = inputs.cuda(), targets.cuda()
+            inputs, targets = Variable(inputs), Variable(targets)
+            outputs, dfeat = net(inputs)
+            # add feature into the array
+            trainfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())  # [4,2560]
+            for i in range(len(targets)):
+                trainfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
+                trainlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
+            idx += len(targets)
+        np.save(os.path.join(cls_resources_dir, 'train_feat.npy'), trainfeat)
+        np.save(os.path.join(cls_resources_dir, 'train_label.npy'), trainlabel)
+
+        test_size = len(test_loader.dataset)
+        testfeat = np.zeros((test_size, 2560 + corp_size * corp_size * corp_size + 1))
+        testlabel = np.zeros((test_size,))
+        idx = 0
+        for batch_idx, (inputs, targets, feat) in enumerate(test_loader):
+            inputs, targets = inputs.cuda(), targets.cuda()
+            inputs, targets = Variable(inputs), Variable(targets)
+            outputs, dfeat = net(inputs)
+            # add feature into the array
+            testfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())
+            for i in range(len(targets)):
+                testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
+                testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
+            idx += len(targets)
+        np.save(os.path.join(cls_resources_dir, 'test_feat.npy'), testfeat)
+        np.save(os.path.join(cls_resources_dir, 'test_label.npy'), testlabel)
+
+
+def find_param_for_gbm():
+    trainfeat = np.load(os.path.join(cls_resources_dir, 'train_feat.npy'))
+    trainlabel = np.load(os.path.join(cls_resources_dir, 'train_label.npy'))
+    random_state = 6
+
+    epoch_param = {'n_estimators': range(50, 151, 10)}
+    search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state),
+                          param_grid=epoch_param, scoring='roc_auc')
+    search.fit(trainfeat, trainlabel)
+    log.info('Epoch score: %s. param: %s', str(search.best_score_), str(search.best_params_))
+    n_estimators = search.best_params_.n_estimators
+
+    dept_param = {'max_depth': range(3, 10, 1), 'min_samples_split': range(100, 801, 200)}
+    search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators),
+                          param_grid=dept_param, scoring='roc_auc')
+    search.fit(trainfeat, trainlabel)
+    log.info('Dept score: %s. param: %s', str(search.best_score_), str(search.best_params_))
+    max_depth = search.best_params_.max_depth
+
+    split_left_param = {'min_samples_split': range(100, 801, 200), 'min_samples_leaf': range(60, 101, 10)}
+    search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators,
+                                                               max_depth=max_depth),
+                          param_grid=split_left_param, scoring='roc_auc')
+    search.fit(trainfeat, trainlabel)
+    log.info('Split-Leaf score: %s. param: %s', str(search.best_score_), str(search.best_params_))
+    min_samples_split = search.best_params_.min_samples_split
+    min_samples_leaf = search.best_params_.min_samples_leaf
+
+    feature_param = {'max_features': range(7, 20, 2)}
+    search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators,
+                                                               max_depth=max_depth, min_samples_split=min_samples_split,
+                                                               min_samples_leaf=min_samples_leaf),
+                          param_grid=feature_param, scoring='roc_auc')
+    search.fit(trainfeat, trainlabel)
+    log.info('Feature score: %s. param: %s', str(search.best_score_), str(search.best_params_))
+    max_features = search.best_params_.max_features
+
+    best_param = {
+        'random_state': random_state,
+        'n_estimators': n_estimators,
+        'max_depth': max_depth,
+        'min_samples_split': min_samples_split,
+        'min_samples_leaf': min_samples_leaf,
+        'max_features': max_features
+    }
+    log.info('Best param: %s', str(best_param))
 
 
 if __name__ == '__main__':

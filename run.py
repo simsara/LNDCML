@@ -23,5 +23,9 @@ if __name__ == '__main__':
         nodcls.run_train()
     elif args.job == 'detect-prod':
         detect_test.run()
+    elif args.job == 'cls-prepare-gbm':
+        nodcls.gen_file_for_gbm()
+    elif args.job == 'cls-opt-gbm':
+        nodcls.find_param_for_gbm()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)
