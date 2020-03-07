@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import shutil
@@ -394,16 +395,16 @@ def find_param_for_gbm():
     trainlabel = np.load(os.path.join(cls_resources_dir, 'train_label.npy'))
     random_state = 6
 
-    # epoch_param = {'n_estimators': range(50, 151, 10)}
-    # search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state),
-    #                       param_grid=epoch_param, scoring='roc_auc')
-    # search.fit(trainfeat, trainlabel)
-    # log.info('Epoch score: %s. param: %s', str(search.best_score_), str(search.best_params_))
+    epoch_param = {'n_estimators': range(50, 151, 10)}
+    search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state),
+                          param_grid=epoch_param, scoring='roc_auc', n_jobs=32)
+    search.fit(trainfeat, trainlabel)
+    log.info('Epoch score: %s. param: %s', str(search.best_score_), str(search.best_params_))
     n_estimators = 100
 
     dept_param = {'max_depth': range(3, 10, 1), 'min_samples_split': range(100, 801, 200)}
     search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators),
-                          param_grid=dept_param, scoring='roc_auc')
+                          param_grid=dept_param, scoring='roc_auc', n_jobs=32)
     search.fit(trainfeat, trainlabel)
     log.info('Dept score: %s. param: %s', str(search.best_score_), str(search.best_params_))
     max_depth = search.best_params_.max_depth
@@ -411,7 +412,7 @@ def find_param_for_gbm():
     split_left_param = {'min_samples_split': range(100, 801, 200), 'min_samples_leaf': range(60, 101, 10)}
     search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators,
                                                                max_depth=max_depth),
-                          param_grid=split_left_param, scoring='roc_auc')
+                          param_grid=split_left_param, scoring='roc_auc', n_jobs=32)
     search.fit(trainfeat, trainlabel)
     log.info('Split-Leaf score: %s. param: %s', str(search.best_score_), str(search.best_params_))
     min_samples_split = search.best_params_.min_samples_split
@@ -421,7 +422,7 @@ def find_param_for_gbm():
     search = GridSearchCV(estimator=GradientBoostingClassifier(random_state=random_state, n_estimators=n_estimators,
                                                                max_depth=max_depth, min_samples_split=min_samples_split,
                                                                min_samples_leaf=min_samples_leaf),
-                          param_grid=feature_param, scoring='roc_auc')
+                          param_grid=feature_param, scoring='roc_auc', n_jobs=32)
     search.fit(trainfeat, trainlabel)
     log.info('Feature score: %s. param: %s', str(search.best_score_), str(search.best_params_))
     max_features = search.best_params_.max_features
@@ -432,9 +433,30 @@ def find_param_for_gbm():
         'max_depth': max_depth,
         'min_samples_split': min_samples_split,
         'min_samples_leaf': min_samples_leaf,
-        'max_features': max_features
+        'max_features': max_features,
+        "learning_rate": 0.1
     }
     log.info('Best param: %s', str(best_param))
+    with open(os.path.join(cls_resources_dir, 'gbm.json'), 'w') as f:
+        json.dump(best_param, f)
+
+
+
+def gbm_with_cfg():
+    cfg = None
+    with open(os.path.join(cls_resources_dir, 'gbm.json'), 'r') as f:
+        cfg = json.load(f)
+    gbm = GradientBoostingClassifier(random_state=cfg['random_state'], n_estimators=cfg['n_estimators'],
+                                     max_depth=cfg['max_depth'], min_samples_split=cfg['min_samples_split'],
+                                     min_samples_leaf=cfg['min_samples_leaf'], max_features=cfg['max_features'],
+                                     learning_rate=cfg['learning_rate'])
+    trainfeat = np.load(os.path.join(cls_resources_dir, 'train_feat.npy'))
+    trainlabel = np.load(os.path.join(cls_resources_dir, 'train_label.npy'))
+    testfeat = np.load(os.path.join(cls_resources_dir, 'test_feat.npy'))
+    testlabel = np.load(os.path.join(cls_resources_dir, 'test_label.npy'))
+    gbm.fit(trainfeat, trainlabel)
+    acc = round(np.mean(gbm.predict(testfeat) == testlabel), 4)
+    log.info('Result %.3f' % acc)
 
 
 if __name__ == '__main__':

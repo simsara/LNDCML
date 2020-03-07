@@ -27,5 +27,7 @@ if __name__ == '__main__':
         nodcls.gen_file_for_gbm()
     elif args.job == 'cls-opt-gbm':
         nodcls.find_param_for_gbm()
+    elif args.job == 'cls-run-gbm':
+        nodcls.gbm_with_cfg()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)
