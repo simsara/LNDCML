@@ -152,7 +152,7 @@ def get_file_list(args):
             tefnamelst.append(srsid + '.npy')
             telabellst.append(int(label))
             tefeatlst.append(feat)
-        else:
+        elif random.randint(0, 9) != 9:
             trfnamelst.append(srsid + '.npy')
             trlabellst.append(int(label))
             trfeatlst.append(feat)
@@ -163,6 +163,8 @@ def get_file_list(args):
         tefeatlst[idx][-1] /= mxd
     log.info(
         '[Existed] Size of train files: %d. Size of test files: %d.' % (len(trfnamelst), len(tefnamelst)))  # 912 92
+
+
 
     return trfnamelst, trlabellst, trfeatlst, tefnamelst, telabellst, tefeatlst
 
@@ -439,7 +441,6 @@ def find_param_for_gbm():
     log.info('Best param: %s', str(best_param))
     with open(os.path.join(cls_resources_dir, 'gbm.json'), 'w') as f:
         json.dump(best_param, f)
-
 
 
 def gbm_with_cfg():
