@@ -152,7 +152,7 @@ def get_file_list(args):
             tefnamelst.append(srsid + '.npy')
             telabellst.append(int(label))
             tefeatlst.append(feat)
-        if random.randint(0, 9) != 9:
+        if srsid.split('-')[0] not in test_id_list or random.randint(0, 9) < 5:
             trfnamelst.append(srsid + '.npy')
             trlabellst.append(int(label))
             trfeatlst.append(feat)
@@ -255,7 +255,7 @@ def run_train():
         _, tr = train(net, loss, opt, train_loader, epoch, args.epochs, m)
         _, te = test(net, loss, test_loader, m)
 
-        to_save = False
+        to_save = True
         if tr > best_tr:
             best_tr = tr
             to_save = True
