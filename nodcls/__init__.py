@@ -152,7 +152,7 @@ def get_file_list(args):
             tefnamelst.append(srsid + '.npy')
             telabellst.append(int(label))
             tefeatlst.append(feat)
-        elif random.randint(0, 9) != 9:
+        if random.randint(0, 9) != 9:
             trfnamelst.append(srsid + '.npy')
             trlabellst.append(int(label))
             trfeatlst.append(feat)
