@@ -9,13 +9,12 @@ import pandas as pd
 import torch
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 
 from nodcls import transforms
 from nodcls.dataloader import lunanod
-from nodcls.focal_loss import BinaryFocalLoss
-from nodcls.focal_loss2 import MultiFocalLoss
+from nodcls.focal_loss import MultiFocalLoss
 from nodcls.models import get_model
 from utils import file, gpu, env
 from utils.log import get_logger
@@ -238,8 +237,6 @@ def get_net(args):
     net = model.get_model()
     try_resume(net, args)
     net = torch.nn.DataParallel(net).cuda()
-    # criterion = BinaryFocalLoss()
-    # criterion = nn.CrossEntropyLoss()
     criterion = MultiFocalLoss(2)
     optimizer = optim.SGD(net.parameters(), lr=args.learning_rate, momentum=0.9, weight_decay=5e-4)
     return net, criterion, optimizer
