@@ -8,3 +8,4 @@ evaluation/result/
 nohup.out
 venv/
 test_resources/
+nodcls/resources/
