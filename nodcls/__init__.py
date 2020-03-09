@@ -401,9 +401,10 @@ def gen_file_for_gbm():
             correct += predicted.eq(targets.data).cpu().sum()
         accout = round(correct.data.cpu().numpy() / total, 4)
         test_result = gbm.predict(testfeat)
+        prob_result = gbm.predict_proba(testfeat)
         compare_result = (test_result == testlabel)
         gbtteacc = round(np.mean(compare_result), 4)
-        df = pd.DataFrame(data=[test_result, testlabel, compare_result]).T
+        df = pd.DataFrame(data=[prob_result[:, 0], prob_result[:, 1], test_result, testlabel, compare_result]).T
         df.to_excel(os.path.join(cls_resources_dir, 'cls_test_output.xls'))
         log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (test_loss / (batch_idx + 1), 100. * accout,
                                                                         correct, total, gbtteacc))
