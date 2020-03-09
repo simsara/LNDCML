@@ -355,6 +355,8 @@ def gen_file_for_gbm():
     args = env.get_args()
     train_loader, test_loader = get_loader(args)
     net, loss, opt = get_net(args)
+    net.eval()
+    gbm = GradientBoostingClassifier(random_state=0)
 
     with torch.no_grad():
         train_size = len(train_loader.dataset)
@@ -373,7 +375,11 @@ def gen_file_for_gbm():
             idx += len(targets)
         np.save(os.path.join(cls_resources_dir, 'train_feat.npy'), trainfeat)
         np.save(os.path.join(cls_resources_dir, 'train_label.npy'), trainlabel)
+        gbm.fit(trainfeat, trainlabel)
 
+        correct = 0
+        total = 0
+        test_loss = 0
         test_size = len(test_loader.dataset)
         testfeat = np.zeros((test_size, 2560 + corp_size * corp_size * corp_size + 1))
         testlabel = np.zeros((test_size,))
@@ -388,6 +394,19 @@ def gen_file_for_gbm():
                 testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
                 testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
             idx += len(targets)
+            loss_val = loss(outputs, targets)
+            test_loss += loss_val.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += targets.size(0)
+            correct += predicted.eq(targets.data).cpu().sum()
+        accout = round(correct.data.cpu().numpy() / total, 4)
+        test_result = gbm.predict(testfeat)
+        compare_result = (test_result == testlabel)
+        gbtteacc = round(np.mean(compare_result), 4)
+        df = pd.DataFrame(data=[test_result, testlabel, compare_result]).T
+        df.to_excel(os.path.join(cls_resources_dir, 'cls_test_output.xls'))
+        log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (test_loss / (batch_idx + 1), 100. * accout,
+                                                                        correct, total, gbtteacc))
         np.save(os.path.join(cls_resources_dir, 'test_feat.npy'), testfeat)
         np.save(os.path.join(cls_resources_dir, 'test_label.npy'), testlabel)
 

@@ -1,21 +1,12 @@
-import os
-import random
-import shutil
-from collections import OrderedDict
-
 import numpy as np
 import pandas as pd
 import torch
 from sklearn.ensemble import GradientBoostingClassifier
-from torch import nn, optim
 from torch.autograd import Variable
 
-from nodcls import transforms
-from nodcls.dataloader import lunanod
-from nodcls.models.dpn3d import DPN92_3D
-from utils import file, gpu, env
+from nodcls import get_loader, get_net
+from utils import env
 from utils.log import get_logger
-from nodcls import get_loader,get_net
 
 log = get_logger(__name__)
 corp_size = 32
@@ -64,7 +55,3 @@ with torch.no_grad():
     df.to_excel('cls_test_output.xls')
     log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (test_loss / (batch_idx + 1), 100. * accout,
                                                                         correct, total, gbtteacc))
-
-
-
-
