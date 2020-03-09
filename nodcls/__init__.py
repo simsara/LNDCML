@@ -87,7 +87,6 @@ def cal_mean_and_std():
 def get_transform():
     pixmean, pixstd = cal_mean_and_std()
     transform_train = transforms.Compose([
-        # transforms.RandomScale(range(28, 38)),
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.RandomYFlip(),

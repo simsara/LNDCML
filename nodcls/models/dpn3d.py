@@ -23,6 +23,8 @@ class DPN(nn.Module):
         self.layer4 = self._make_layer(in_planes[3], out_planes[3], num_blocks[3], dense_depth[3], stride=2)
         self.linear = nn.Linear(out_planes[3] + (num_blocks[3] + 1) * dense_depth[3], 2)  # 10)
 
+        self.drop = nn.Dropout3d(p=0.5, inplace=False)
+
     def _make_layer(self, in_planes, out_planes, num_blocks, dense_depth, stride):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
@@ -38,6 +40,7 @@ class DPN(nn.Module):
         out = self.layer2(out)  # 16 * 672
         out = self.layer3(out)  # 8 * 1528
         out = self.layer4(out)  # 4 * 2560
+        out = self.drop(out)
         out = F.avg_pool3d(out, 4)  # 1 * 2560
         out_1 = out.view(out.size(0), -1)
         out = self.linear(out_1)  # 1 * 2
