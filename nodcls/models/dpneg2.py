@@ -86,9 +86,9 @@ class DPN_EG(nn.Module):
         self.last_planes = 64
 
         self.layer1 = self._make_layer(in_planes[0], out_planes[0], num_blocks[0], dense_depth[0], stride=1)
-        self.eg1 = EmbeddedGaussian(self.last_planes, self.last_planes // 8)
+        # self.eg1 = EmbeddedGaussian(self.last_planes, self.last_planes // 8)
         self.layer2 = self._make_layer(in_planes[1], out_planes[1], num_blocks[1], dense_depth[1], stride=2)
-        self.eg2 = EmbeddedGaussian(self.last_planes, self.last_planes // 8)
+        # self.eg2 = EmbeddedGaussian(self.last_planes, self.last_planes // 8)
         self.layer3 = self._make_layer(in_planes[2], out_planes[2], num_blocks[2], dense_depth[2], stride=2)
         self.eg3 = EmbeddedGaussian(self.last_planes, self.last_planes // 8)
         self.layer4 = self._make_layer(in_planes[3], out_planes[3], num_blocks[3], dense_depth[3], stride=2)
@@ -107,9 +107,9 @@ class DPN_EG(nn.Module):
     def forward(self, x):  # 1 * 32
         out = F.relu(self.bn1(self.conv1(x)))  # 32 * 64
         out = self.layer1(out)  # 32 * 320
-        out = self.eg1(out)
+        # out = self.eg1(out)
         out = self.layer2(out)  # 16 * 672
-        out = self.eg2(out)
+        # out = self.eg2(out)
         out = self.layer3(out)  # 8 * 1528
         out = self.eg3(out)  # 8 * 1528
         out = self.layer4(out)  # 4 * 2560
