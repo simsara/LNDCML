@@ -11,6 +11,7 @@ from utils import tools, gpu
 
 slice_plt = 70
 test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_resources')
+save_file_prefix = 'detect_preprocess'
 
 
 # 生成mask
@@ -97,7 +98,7 @@ def preprocess(filepath, mask, mask1, mask2):
     plt.show()
     sliceim = sliceim[np.newaxis, ...]
 
-    np.save(os.path.join(test_dir, "preprocess_clean.npy"), sliceim)
+    np.save(os.path.join(test_dir, "%s_clean.npy" % save_file_prefix), sliceim)
 
     return sliceim
 
@@ -116,13 +117,13 @@ def init_net(args):
 
 
 # 执行检测，生成结果npy文件
-def detector():
+def detector(file_name):
     args = env.get_args()
     log.info(args)
     net_config, net, loss, get_pbb = init_net(args)
 
     testdatadir = test_dir  # 预处理结果路径
-    testfilelist = ['preprocess']  # 文件名列表
+    testfilelist = [file_name]  # 文件名列表
 
     split_combine = SplitCombine(net_config['side_len'], net_config['max_stride'], net_config['stride'],
                                  net_config['margin'], net_config['pad_value'])
@@ -142,8 +143,8 @@ def detector():
     test(test_loader, net, get_pbb, args, net_config, test_dir)
 
 
-def show_result(preprocess_file):
-    pbb = np.load(os.path.join(test_dir, 'preprocess_pbb.npy'))
+def show_result(preprocess_file, file_prefix):
+    pbb = np.load(os.path.join(test_dir, '%s_pbb.npy' % file_prefix))
     pbb = np.array(pbb[pbb[:, 0] > 0])
     pbb = tools.nms(pbb, 0.1)
     log.info('Detection Results according to confidence')
@@ -167,8 +168,8 @@ def full_pipeline(mhd):
     mask, mask1, mask2 = make_mask(raw_file)
     preprocess_file = preprocess(raw_file, mask, mask1, mask2)
 
-    detector()
-    show_result(preprocess_file)
+    detector(save_file_prefix)
+    show_result(preprocess_file, save_file_prefix)
 
 
 def run():

@@ -349,13 +349,7 @@ def test(net, criterion, test_loader, m):
     return accout, gbtteacc
 
 
-def gen_file_for_gbm():
-    args = env.get_args()
-    train_loader, test_loader = get_loader(args)
-    net, loss, opt = get_net(args)
-    net.eval()
-    gbm = GradientBoostingClassifier(random_state=0)
-
+def gen_train_gbm_npy(net, train_loader):
     with torch.no_grad():
         train_size = len(train_loader.dataset)
         trainfeat = np.zeros((train_size, 2560 + corp_size * corp_size * corp_size + 1))
@@ -373,8 +367,19 @@ def gen_file_for_gbm():
             idx += len(targets)
         np.save(os.path.join(cls_resources_dir, 'train_feat.npy'), trainfeat)
         np.save(os.path.join(cls_resources_dir, 'train_label.npy'), trainlabel)
-        gbm.fit(trainfeat, trainlabel)
+        return trainfeat, trainlabel
 
+
+def gen_file_for_gbm():
+    args = env.get_args()
+    train_loader, test_loader = get_loader(args)
+    net, loss, opt = get_net(args)
+    net.eval()
+    gbm = GradientBoostingClassifier(random_state=0)
+    trainfeat, trainlabel = gen_train_gbm_npy(net, train_loader)
+    gbm.fit(trainfeat, trainlabel)
+
+    with torch.no_grad():
         correct = 0
         total = 0
         test_loss = 0
