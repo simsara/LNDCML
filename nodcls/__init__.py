@@ -9,11 +9,12 @@ import pandas as pd
 import torch
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV
-from torch import nn, optim
+from torch import optim
 from torch.autograd import Variable
 
 from nodcls import transforms
 from nodcls.dataloader import lunanod
+from nodcls.focal_loss import MultiFocalLoss
 from nodcls.models import get_model
 from utils import file, gpu, env
 from utils.log import get_logger
@@ -86,7 +87,6 @@ def cal_mean_and_std():
 def get_transform():
     pixmean, pixstd = cal_mean_and_std()
     transform_train = transforms.Compose([
-        # transforms.RandomScale(range(28, 38)),
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.RandomYFlip(),
@@ -236,7 +236,7 @@ def get_net(args):
     net = model.get_model()
     try_resume(net, args)
     net = torch.nn.DataParallel(net).cuda()
-    criterion = nn.CrossEntropyLoss()
+    criterion = MultiFocalLoss(2)
     optimizer = optim.SGD(net.parameters(), lr=args.learning_rate, momentum=0.9, weight_decay=5e-4)
     return net, criterion, optimizer
 
@@ -355,6 +355,8 @@ def gen_file_for_gbm():
     args = env.get_args()
     train_loader, test_loader = get_loader(args)
     net, loss, opt = get_net(args)
+    net.eval()
+    gbm = GradientBoostingClassifier(random_state=0)
 
     with torch.no_grad():
         train_size = len(train_loader.dataset)
@@ -373,7 +375,11 @@ def gen_file_for_gbm():
             idx += len(targets)
         np.save(os.path.join(cls_resources_dir, 'train_feat.npy'), trainfeat)
         np.save(os.path.join(cls_resources_dir, 'train_label.npy'), trainlabel)
+        gbm.fit(trainfeat, trainlabel)
 
+        correct = 0
+        total = 0
+        test_loss = 0
         test_size = len(test_loader.dataset)
         testfeat = np.zeros((test_size, 2560 + corp_size * corp_size * corp_size + 1))
         testlabel = np.zeros((test_size,))
@@ -388,6 +394,20 @@ def gen_file_for_gbm():
                 testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
                 testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
             idx += len(targets)
+            loss_val = loss(outputs, targets)
+            test_loss += loss_val.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += targets.size(0)
+            correct += predicted.eq(targets.data).cpu().sum()
+        accout = round(correct.data.cpu().numpy() / total, 4)
+        test_result = gbm.predict(testfeat)
+        prob_result = gbm.predict_proba(testfeat)
+        compare_result = (test_result == testlabel)
+        gbtteacc = round(np.mean(compare_result), 4)
+        df = pd.DataFrame(data=[prob_result[:, 0], prob_result[:, 1], test_result, testlabel, compare_result]).T
+        df.to_excel(os.path.join(cls_resources_dir, 'cls_test_output.xls'))
+        log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (test_loss / (batch_idx + 1), 100. * accout,
+                                                                        correct, total, gbtteacc))
         np.save(os.path.join(cls_resources_dir, 'test_feat.npy'), testfeat)
         np.save(os.path.join(cls_resources_dir, 'test_label.npy'), testlabel)
 
