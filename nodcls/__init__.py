@@ -11,6 +11,7 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV
 from torch import optim
 from torch.autograd import Variable
+from torch.nn import CrossEntropyLoss
 
 from nodcls import transforms
 from nodcls.dataloader import lunanod
@@ -125,8 +126,6 @@ def get_file_list(args):
     test_id_list = []
 
     foldnum = args.cls_test_fold_num
-    if foldnum == -1 or foldnum < 0 or foldnum > 9:
-        foldnum = random.randint(0, 9)
     log.info('Using fold %d to test' % foldnum)
     subset_path = os.path.join(file.get_luna_data_path(), 'subset%d' % foldnum)
     for fname in os.listdir(subset_path):
@@ -163,8 +162,6 @@ def get_file_list(args):
         tefeatlst[idx][-1] /= mxd
     log.info(
         '[Existed] Size of train files: %d. Size of test files: %d.' % (len(trfnamelst), len(tefnamelst)))  # 912 92
-
-
 
     return trfnamelst, trlabellst, trfeatlst, tefnamelst, telabellst, tefeatlst
 
@@ -236,9 +233,10 @@ def get_net(args):
     net = model.get_model()
     try_resume(net, args)
     net = torch.nn.DataParallel(net).cuda()
-    criterion = MultiFocalLoss(2)
+    loss = MultiFocalLoss(2)
+    loss = CrossEntropyLoss()
     optimizer = optim.SGD(net.parameters(), lr=args.learning_rate, momentum=0.9, weight_decay=5e-4)
-    return net, criterion, optimizer
+    return net, loss, optimizer
 
 
 def run_train():
