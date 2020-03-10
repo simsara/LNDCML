@@ -1,17 +1,22 @@
 import json
 import os
 
+import matplotlib.pyplot as plt
 import SimpleITK as sitk
 import numpy as np
 import pandas as pd
 import torch
-from matplotlib import pyplot as plt
 from sklearn.ensemble import GradientBoostingClassifier
 from torch.autograd import Variable
+from torch.nn import CrossEntropyLoss
+from torch.utils.data import DataLoader
 
-from nodcls import corp_size, get_transform, lunanod, get_net, cls_resources_dir
+import detect
+import nodcls
+from detect import netdef, SplitCombine, DataBowl3Detector, data
+from nodcls import corp_size, get_transform, lunanod, cls_resources_dir
 from prepare import binarize_per_slice, all_slice_analysis, fill_hole, two_lung_only, process_mask, lum_trans, resample
-from utils import file, env
+from utils import file, env, gpu, tools
 from utils.log import get_logger
 
 log = get_logger(__name__)
@@ -99,8 +104,8 @@ def preprocess(mask, mask1, mask2, idx):
               extend_box[1, 0]:extend_box[1, 1],
               extend_box[2, 0]:extend_box[2, 1]]
     log.info('sliceim_shape %s' % str(sliceim.shape))
-    plt.imshow(sliceim[155, :, :], 'gray')
-    plt.show()
+    # plt.imshow(sliceim[155, :, :], 'gray')
+    # plt.show()
     sliceim = sliceim[np.newaxis, ...]
 
     np.save(os.path.join(test_dir, '%s_%d_clean.npy' % (save_file_prefix, idx)), sliceim)
@@ -108,7 +113,7 @@ def preprocess(mask, mask1, mask2, idx):
     return sliceim
 
 
-def corp(clean_file_prefix):
+def corp():
     save_path = file.get_cls_corp_path()
     if not os.path.exists(save_path):
         os.mkdir(save_path)
@@ -118,9 +123,9 @@ def corp(clean_file_prefix):
         annotations = json.load(f)
 
     for idx in range(len(annotations)):
-        fname = '%s-%d' % (clean_file_prefix, idx)
+        fname = '%s-%d' % (save_file_prefix, idx)
         i = int(annotations[idx]['i'])
-        data = np.load(os.path.join(test_dir, '%s_%d_clean.npy' % (clean_file_prefix, i)))
+        data = np.load(os.path.join(test_dir, '%s_%d_clean.npy' % (save_file_prefix, i)))
         crdx = int(float(annotations[idx]['x']))
         crdy = int(float(annotations[idx]['y']))
         crdz = int(float(annotations[idx]['z']))
@@ -139,7 +144,7 @@ def corp(clean_file_prefix):
         log.info('Saved: %s. Shape: %s.' % (fname, str(cropdata.shape)))
 
 
-def get_file_list(args, clean_file_prefix):
+def get_file_list(args):
     tefnamelst = []
     telabellst = []
     tefeatlst = []
@@ -150,7 +155,7 @@ def get_file_list(args, clean_file_prefix):
 
     mxx = mxy = mxz = mxd = 0
     for idx in range(len(annotations)):
-        srsid = '%s-%d' % (clean_file_prefix, idx)
+        srsid = '%s-%d' % (save_file_prefix, idx)
         x = int(float(annotations[idx]['x']))
         y = int(float(annotations[idx]['y']))
         z = int(float(annotations[idx]['z']))
@@ -162,6 +167,8 @@ def get_file_list(args, clean_file_prefix):
         mxd = max(abs(float(d)), mxd)
         # crop raw pixel as feature
         corp_file = os.path.join(file.get_cls_corp_path(), '%s.npy' % srsid)
+        if not os.path.exists(corp_file):
+            continue
         data = np.load(corp_file)
         bgx = data.shape[0] // 2 - corp_size // 2
         bgy = data.shape[1] // 2 - corp_size // 2
@@ -180,10 +187,10 @@ def get_file_list(args, clean_file_prefix):
     return tefnamelst, telabellst, tefeatlst
 
 
-def get_loader(args, clean_file_prefix):
+def get_loader(args):
     preprocesspath = file.get_cls_corp_path()
     _, transform_test = get_transform()
-    tefnamelst, telabellst, tefeatlst = get_file_list(args, clean_file_prefix)
+    tefnamelst, telabellst, tefeatlst = get_file_list(args, save_file_prefix)
 
     testset = lunanod(preprocesspath, tefnamelst, telabellst, tefeatlst, train=False, transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size,
@@ -192,10 +199,21 @@ def get_loader(args, clean_file_prefix):
     return testloader
 
 
-def cls(clean_file_prefix):
+def get_cls_net(args):
+    gpu.set_gpu(args.gpu)
+    model = nodcls.models.get_model(args.model)
+    net = model.get_model()
+    checkpoint = torch.load(os.path.join(test_dir, 'cls.ckpt'))
+    net.load_state_dict(checkpoint['state_dict'])
+    net = torch.nn.DataParallel(net).cuda()
+    loss = CrossEntropyLoss()
+    return net, loss
+
+
+def cls():
     args = env.get_args()
-    test_loader = get_loader(args, clean_file_prefix)
-    net, loss, opt = get_net(args)
+    test_loader = get_loader(args)
+    net, loss = get_cls_net(args)
     net.eval()
     gbm = GradientBoostingClassifier(random_state=0)
     trainfeat = np.load(os.path.join(cls_resources_dir, 'train_feat.npy'))
@@ -235,18 +253,85 @@ def cls(clean_file_prefix):
                                                                         correct, total, gbtteacc))
 
 
-def full_pipeline():
+def get_train_net(args):
+    gpu.set_gpu(args.gpu)
+    torch.manual_seed(0)
+    model = netdef.get_model('dpnse')
+    config, net, loss, get_pbb = model.get_model()
+    checkpoint = torch.load(os.path.join(test_dir, 'detect.ckpt'))
+    net.load_state_dict(checkpoint['state_dict'])
+    net = torch.nn.DataParallel(net).cuda()  # 使用多个GPU进行训练
+    loss = loss.cuda()
+    log.info("we have %s GPUs" % torch.cuda.device_count())
+    return config, net, loss, get_pbb
+
+
+def detector():
+    args = env.get_args()
+    log.info(args)
+    net_config, net, loss, get_pbb = get_train_net(args)
+
+    testdatadir = test_dir  # 预处理结果路径
+    testfilelist = [f[:-10] for f in os.listdir(testdatadir) if
+                    f.startswith(save_file_prefix) and f.endswith('_clean.npy')]  # 文件名列表
+
+    split_combine = SplitCombine(net_config['side_len'], net_config['max_stride'], net_config['stride'],
+                                 net_config['margin'], net_config['pad_value'])
+    dataset = DataBowl3Detector(
+        testdatadir,
+        testfilelist,
+        net_config,
+        phase='prod',
+        split_combine=split_combine)
+    test_loader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=args.workers,
+        collate_fn=data.collate,
+        pin_memory=False)
+    detect.test(test_loader, net, get_pbb, args, net_config, test_dir)
+
+
+def generate_nii_annotations():
     for i in range(50):
+        pbb_name = os.path.join(test_dir, '%s_%d_pbb.npy' % (save_file_prefix, i))
+        if not os.path.exists(pbb_name):
+            continue
+        raw_data = np.load(os.path.join(test_dir, '%s_%d_clean.npy' % (save_file_prefix, i)))
+        pbb = np.load(pbb_name)
+        pbb = np.array(pbb[pbb[:, 0] > 0])
+        pbb = tools.nms(pbb, 0.1)
+        log.info('Detection Results according to confidence')
+        for idx in range(pbb.shape[0]):
+            z, x, y = int(pbb[idx, 1]), int(pbb[idx, 2]), int(pbb[idx, 3])
+            #     print z,x,y
+            dat0 = np.array(raw_data[0, z, :, :])
+            dat0[max(0, x - 10):min(dat0.shape[0], x + 10), max(0, y - 10)] = 255
+            dat0[max(0, x - 10):min(dat0.shape[0], x + 10), min(dat0.shape[1], y + 10)] = 255
+            dat0[max(0, x - 10), max(0, y - 10):min(dat0.shape[1], y + 10)] = 255
+            dat0[min(dat0.shape[0], x + 10), max(0, y - 10):min(dat0.shape[1], y + 10)] = 255
+            plt.imshow(dat0, 'gray')
+            plt.show()
+            print(pbb[idx])
+        pass
+
+
+def full_pipeline():
+    for i in range(0, 50):
         if not os.path.exists(os.path.join(test_dir, '%d.nii.gz' % i)):
             continue
-        case_pixels, origin, spacing = read_nii(i)
-        mask, mask1, mask2 = make_mask(case_pixels, origin, spacing)
-        preprocess_file = preprocess(mask, mask1, mask2, i)
-    # detect_test.detector(save_file_prefix)
+        try:
+            case_pixels, origin, spacing = read_nii(i)
+            mask, mask1, mask2 = make_mask(case_pixels, origin, spacing)
+            preprocess(mask, mask1, mask2, i)
+        except Exception as e:
+            log.error("Fail to convert %d" % i)
+    detector()
     # detect_test.show_result(preprocess_file, save_file_prefix)
-    corp(save_file_prefix)
-    cls(save_file_prefix)
+    corp()
+    cls()
 
 
 if __name__ == '__main__':
-    full_pipeline()
+    detector()

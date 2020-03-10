@@ -234,7 +234,7 @@ def get_net(args):
     try_resume(net, args)
     net = torch.nn.DataParallel(net).cuda()
     loss = MultiFocalLoss(2)
-    # loss = CrossEntropyLoss()
+    loss = CrossEntropyLoss()
     optimizer = optim.SGD(net.parameters(), lr=args.learning_rate, momentum=0.9, weight_decay=5e-4)
     return net, loss, optimizer
 
