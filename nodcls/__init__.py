@@ -151,7 +151,7 @@ def get_file_list(args):
             tefnamelst.append(srsid + '.npy')
             telabellst.append(int(label))
             tefeatlst.append(feat)
-        if srsid.split('-')[0] not in test_id_list or random.randint(0, 9) < 5:
+        else:
             trfnamelst.append(srsid + '.npy')
             trlabellst.append(int(label))
             trfeatlst.append(feat)
