@@ -120,7 +120,7 @@ def corp(clean_file_prefix):
     for idx in range(len(annotations)):
         fname = '%s-%d' % (clean_file_prefix, idx)
         i = int(annotations[idx]['i'])
-        data = np.load(os.path.join(test_dir, '%s_%d_clean.npy' % clean_file_prefix, i))
+        data = np.load(os.path.join(test_dir, '%s_%d_clean.npy' % (clean_file_prefix, i)))
         crdx = int(float(annotations[idx]['x']))
         crdy = int(float(annotations[idx]['y']))
         crdz = int(float(annotations[idx]['z']))
