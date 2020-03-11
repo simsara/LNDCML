@@ -310,8 +310,8 @@ def train(net, criterion, optimizer, train_loader, epoch, max_epoch, m):
 
     m.fit(trainfeat, trainlabel)
     gbttracc = round(np.mean(m.predict(trainfeat) == trainlabel), 4)
-    log.info('Train Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (train_loss / (batch_idx + 1), 100. * accout,
-                                                                     correct, total, gbttracc))
+    log.info('Train Loss: %.3f | Acc: %.3f%% (%d/%d)' % (train_loss / (batch_idx + 1), 100. * accout,
+                                                                     correct, total))
     return accout, gbttracc
 
 
