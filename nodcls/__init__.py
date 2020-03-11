@@ -251,6 +251,8 @@ def run_train():
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
         m = GradientBoostingClassifier(random_state=0)
         _, tr = train(net, loss, opt, train_loader, epoch, args.epochs, m)
+        if epoch <= args.epochs // 2:
+            continue
         _, te = test(net, loss, test_loader, m)
 
         to_save = True
@@ -308,8 +310,10 @@ def train(net, criterion, optimizer, train_loader, epoch, max_epoch, m):
         correct += predicted.eq(targets.data).cpu().sum()
     accout = round(correct.data.cpu().numpy() / total, 4)
 
-    m.fit(trainfeat, trainlabel)
-    gbttracc = round(np.mean(m.predict(trainfeat) == trainlabel), 4)
+    gbttracc = 0
+    if epoch > max_epoch // 2:
+        m.fit(trainfeat, trainlabel)
+        gbttracc = round(np.mean(m.predict(trainfeat) == trainlabel), 4)
     log.info('Train Loss: %.3f | Acc: %.3f%% (%d/%d)' % (train_loss / (batch_idx + 1), 100. * accout,
                                                                      correct, total))
     return accout, gbttracc
