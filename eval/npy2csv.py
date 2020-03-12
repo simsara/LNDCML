@@ -3,10 +3,11 @@ import os
 from concurrent.futures import Future
 
 import numpy as np
+import pandas as pd
 
 from eval.CADevaluation import nodule_cad_evaluation
 from eval.csv_label import pbb_csv_header
-from utils import file
+from utils import file, env
 from utils.log import get_logger
 from utils.threadpool import pool
 from utils.tools import VoxelToWorldCoord, load_itk_image, nms
@@ -110,26 +111,32 @@ def get_froc(args):  # 阈值和epoch
     """
     根据pbb生成的csv
     """
+    output_dict = {}
+    output_dict['epoch'] = []
+    for detp_thresh in args.eval_detp:
+        output_dict[detp_thresh] = []
+
     max_froc = 0
     max_ep = 0
     for ep in range(args.start_epoch, args.epochs + 1):  # 对每个epoch分别处理
         if not epoch_exists(args, ep):
             continue
         uid_list = np.load(file.get_uid_list_filename(args, ep))
-        froc_list = []
         for detp_thresh in args.eval_detp:  # 对于阈值列表中的每一个阈值
             predanno = file.get_predanno_file_name(args, ep, detp_thresh)
             output_dir = file.get_eval_save_path(args, ep, detp_thresh)
-            froc_list.append(get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list))
+            output_dict[detp_thresh].append(get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list))
 
-        if max(froc_list) > max_froc:
+        if max(output_dict[detp_thresh]) > max_froc:
             max_ep = ep  # 更新maxep
-            max_froc = max(froc_list)
+            max_froc = max(output_dict[detp_thresh])
 
-        log.info('Epoch: %03d. Froc list: %s' % (ep, froc_list))
+        log.info('Epoch: %03d. Froc list: %s' % (ep, output_dict[detp_thresh]))
 
-        # TODO 跳过了一个看不懂的循环
     log.info('Max froc: %3.10f. Max epoch: %03d' % (max_froc, max_ep))
+    df = pd.DataFrame(output_dict)
+    df['avg'] = df[args.eval_detp].mean(axis=1)
+    df.to_excel(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'detect_froc.xls'), index=False)
 
 
 def epoch_exists(args, epoch) -> bool:
