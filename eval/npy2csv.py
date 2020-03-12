@@ -83,7 +83,7 @@ def get_csv(args):  # 给定阈值
             result_list = []
             for pbb_file_name in pbb_list:
                 if args.multi_process == 1:
-                    future_list.add(pool.submit(convert_csv, bbox_name=pbb_file_name, bbox_path=bbox_path, detp=detp_thresh))
+                    future_list.append(pool.submit(convert_csv, bbox_name=pbb_file_name, bbox_path=bbox_path, detp=detp_thresh))
                 else:
                     result_list.append(convert_csv(bbox_name=pbb_file_name, bbox_path=bbox_path, detp=detp_thresh))
 
