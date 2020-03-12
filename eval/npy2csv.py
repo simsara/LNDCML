@@ -136,7 +136,7 @@ def get_froc(args):  # 阈值和epoch
     log.info('Max froc: %3.10f. Max epoch: %03d' % (max_froc, max_ep))
     df = pd.DataFrame(output_dict)
     df['avg'] = df[args.eval_detp].mean(axis=1)
-    df.to_excel(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'detect_froc.xls'), index=False)
+    df.to_excel(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'detect_froc_%s.xls' % args.model), index=False)
 
 
 def epoch_exists(args, epoch) -> bool:
