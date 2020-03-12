@@ -23,6 +23,7 @@ class DPN(nn.Module):
         self.linear = nn.Linear(out_planes[3] + (num_blocks[3] + 1) * dense_depth[3], 2)
 
         self.drop = nn.Dropout3d(p=0.5, inplace=False)
+        self.softmax = nn.Softmax(dim=1)
 
     def _make_layer(self, in_planes, out_planes, num_blocks, dense_depth, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -41,6 +42,7 @@ class DPN(nn.Module):
         out = F.avg_pool3d(out, 4)  # 1 * 2560
         out_1 = out.view(out.size(0), -1)
         out = self.linear(out_1)  # 1 * 2
+        out = self.softmax(out)
         return out, out_1
 
 
