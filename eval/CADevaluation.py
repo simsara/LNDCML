@@ -466,7 +466,7 @@ def draw_and_return(output_dir, CADSystemName,
             curfp *= 2
             if curfp == 16:
                 break
-    return frocv / 7
+    return frocv / 7, sens_itp
 
 
 def get_nodule(annotation, header, state=""):

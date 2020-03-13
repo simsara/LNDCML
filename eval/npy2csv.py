@@ -113,25 +113,34 @@ def get_froc(args):  # 阈值和epoch
     """
     output_dict = {}
     output_dict['epoch'] = []
-    for detp_thresh in args.eval_detp:
-        output_dict[detp_thresh] = []
-
+    curfp = 0.125
+    for i in range(7):
+        output_dict[curfp] = []
+        curfp *= 2
     max_froc = 0
     max_ep = 0
     for ep in range(args.start_epoch, args.epochs + 1):  # 对每个epoch分别处理
         if not epoch_exists(args, ep):
             continue
         uid_list = np.load(file.get_uid_list_filename(args, ep))
+        froc_list = []
+        sens_list = []
         for detp_thresh in args.eval_detp:  # 对于阈值列表中的每一个阈值
             predanno = file.get_predanno_file_name(args, ep, detp_thresh)
             output_dir = file.get_eval_save_path(args, ep, detp_thresh)
-            output_dict[detp_thresh].append(get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list))
+            froc, sens_list = get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list)
+            froc_list.append(froc)
 
-        if max(output_dict[detp_thresh]) > max_froc:
+        if max(froc_list) > max_froc:
             max_ep = ep  # 更新maxep
-            max_froc = max(output_dict[detp_thresh])
+            max_froc = max(froc_list)
 
-        log.info('Epoch: %03d. Froc list: %s' % (ep, output_dict[detp_thresh]))
+        log.info('Epoch: %03d. Froc list: %s' % (ep, froc_list))
+
+        curfp = 0.125
+        for i in range(7):
+            output_dict[curfp].append(sens_list[i])
+            curfp *= 2
 
     log.info('Max froc: %3.10f. Max epoch: %03d' % (max_froc, max_ep))
     df = pd.DataFrame(output_dict)
