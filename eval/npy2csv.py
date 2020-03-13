@@ -108,15 +108,14 @@ def get_froc_value(predanno_filename, output_dir, uid_list):
 
 # 每个epoch都会对应一个csv文件，要选取一个最好的结果，选取标准为froc值
 def get_froc(args):  # 阈值和epoch
+    target = [0.125, 0.25, 0.5, 1, 2, 4, 8]
     """
     根据pbb生成的csv
     """
     output_dict = {}
     output_dict['epoch'] = []
-    curfp = 0.125
-    for i in range(7):
-        output_dict[curfp] = []
-        curfp *= 2
+    for i in target:
+        output_dict[i] = []
     max_froc = 0
     max_ep = 0
     for ep in range(args.start_epoch, args.epochs + 1):  # 对每个epoch分别处理
@@ -138,14 +137,12 @@ def get_froc(args):  # 阈值和epoch
         log.info('Epoch: %03d. Froc list: %s' % (ep, froc_list))
 
         output_dict['epoch'].append(ep)
-        curfp = 0.125
         for i in range(7):
-            output_dict[curfp].append(sens_list[i])
-            curfp *= 2
+            output_dict[target[i]].append(sens_list[i])
 
     log.info('Max froc: %3.10f. Max epoch: %03d' % (max_froc, max_ep))
     df = pd.DataFrame(output_dict)
-    df['avg'] = df[args.eval_detp].mean(axis=1)
+    df['avg'] = df[target].mean(axis=1)
     df.to_excel(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'detect_froc_%s.xls' % args.model), index=False)
 
 
