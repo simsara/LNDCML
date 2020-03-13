@@ -137,6 +137,7 @@ def get_froc(args):  # 阈值和epoch
 
         log.info('Epoch: %03d. Froc list: %s' % (ep, froc_list))
 
+        output_dict['epoch'].append(ep)
         curfp = 0.125
         for i in range(7):
             output_dict[curfp].append(sens_list[i])
