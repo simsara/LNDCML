@@ -123,11 +123,12 @@ def get_froc(args):  # 阈值和epoch
             continue
         uid_list = np.load(file.get_uid_list_filename(args, ep))
         froc_list = []
+        fps_itp = []
         sens_list = []
         for detp_thresh in args.eval_detp:  # 对于阈值列表中的每一个阈值
             predanno = file.get_predanno_file_name(args, ep, detp_thresh)
             output_dir = file.get_eval_save_path(args, ep, detp_thresh)
-            froc, sens_list = get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list)
+            froc, fps_itp, sens_itp = get_froc_value(predanno_filename=predanno, output_dir=output_dir, uid_list=uid_list)
             froc_list.append(froc)
 
         if max(froc_list) > max_froc:
@@ -137,8 +138,13 @@ def get_froc(args):  # 阈值和epoch
         log.info('Epoch: %03d. Froc list: %s' % (ep, froc_list))
 
         output_dict['epoch'].append(ep)
-        for i in range(7):
-            output_dict[target[i]].append(sens_list[i])
+        curfp = 0.125  # 0.25 0.5 1 2 4 8
+        for fp, se in zip(fps_itp, sens_itp):  # fps_bs_itp sens_bs_mean):
+            if fp >= curfp:
+                output_dict[curfp].append(se)
+                curfp *= 2
+                if curfp == 16:
+                    break
 
     log.info('Max froc: %3.10f. Max epoch: %03d' % (max_froc, max_ep))
     df = pd.DataFrame(output_dict)
