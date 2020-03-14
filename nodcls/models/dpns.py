@@ -42,7 +42,6 @@ class DPN(nn.Module):
         out = F.avg_pool3d(out, 4)  # 1 * 2560
         out_1 = out.view(out.size(0), -1)
         out = self.linear(out_1)  # 1 * 2
-        out = self.softmax(out)
         return out, out_1
 
 
