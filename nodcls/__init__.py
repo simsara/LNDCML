@@ -245,38 +245,24 @@ def run_train():
     net, loss, opt = get_net(args)
     save_dir = file.get_cls_net_save_dir(args)
 
-    best_tr = 0
-    best_te = 0
-
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
-        m = GradientBoostingClassifier(random_state=0)
-        _, tr = train(net, loss, opt, train_loader, epoch, args.epochs, m)
-        if epoch <= args.epochs // 2:
-            continue
-        _, te = test(net, loss, test_loader, m)
+        gmb_save_path = get_gbm_file_path(args.model, epoch)
+        train(net, loss, opt, train_loader, epoch, args.epochs, gmb_save_path)
+        test(net, loss, test_loader, gmb_save_path)
 
-        to_save = True
-        if tr > best_tr:
-            best_tr = tr
-            to_save = True
-        if te > best_te:
-            best_te = te
-            to_save = True
-
-        if to_save:
-            state_dict = net.module.state_dict()
-            for key in state_dict.keys():
-                state_dict[key] = state_dict[key].cpu()
-            torch.save({
-                'epoch': epoch,
-                'save_dir': save_dir,
-                'state_dict': state_dict,
-                'args': args
-            }, file.get_cls_net_save_file_path_name(args, epoch))
-            log.info('Saved epoch %d' % epoch)
+        state_dict = net.module.state_dict()
+        for key in state_dict.keys():
+            state_dict[key] = state_dict[key].cpu()
+        torch.save({
+            'epoch': epoch,
+            'save_dir': save_dir,
+            'state_dict': state_dict,
+            'args': args
+        }, file.get_cls_net_save_file_path_name(args, epoch))
+        log.info('Saved epoch %d' % epoch)
 
 
-def train(net, criterion, optimizer, train_loader, epoch, max_epoch, m):
+def train(net, criterion, optimizer, train_loader, epoch, max_epoch, gmb_save_path):
     train_size = len(train_loader.dataset)
     net.train()
     lr = get_learning_rate(epoch, max_epoch)
@@ -309,20 +295,15 @@ def train(net, criterion, optimizer, train_loader, epoch, max_epoch, m):
         total += targets.size(0)
         correct += predicted.eq(targets.data).cpu().sum()
     accout = round(correct.data.cpu().numpy() / total, 4)
-
-    gbttracc = 0
-    if epoch > max_epoch // 2:
-        m.fit(trainfeat, trainlabel)
-        gbttracc = round(np.mean(m.predict(trainfeat) == trainlabel), 4)
     log.info('Train Loss: %.3f | Acc: %.3f%% (%d/%d)' % (train_loss / (batch_idx + 1), 100. * accout,
-                                                                     correct, total))
-    return accout, gbttracc
+                                                         correct, total))
+    np.save(os.path.join(gmb_save_path, 'train_feat.npy'), trainfeat)
+    np.save(os.path.join(gmb_save_path, 'train_label.npy'), trainlabel)
 
 
-def test(net, criterion, test_loader, m):
+def test(net, criterion, test_loader, gmb_save_path):
     test_size = len(test_loader.dataset)
     net.eval()
-    accout, gbtteacc = 0, 0
     with torch.no_grad():
         test_loss = 0
         correct = 0
@@ -347,79 +328,14 @@ def test(net, criterion, test_loader, m):
             total += targets.size(0)
             correct += predicted.eq(targets.data).cpu().sum()
         accout = round(correct.data.cpu().numpy() / total, 4)
-        gbtteacc = round(np.mean(m.predict(testfeat) == testlabel), 4)
-        log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (test_loss / (batch_idx + 1), 100. * accout,
-                                                                        correct, total, gbtteacc))
-    return accout, gbtteacc
-
-
-def gen_train_gbm_npy(net, train_loader):
-    with torch.no_grad():
-        train_size = len(train_loader.dataset)
-        trainfeat = np.zeros((train_size, 2560 + corp_size * corp_size * corp_size + 1))
-        trainlabel = np.zeros((train_size,))
-        idx = 0
-        for batch_idx, (inputs, targets, feat) in enumerate(train_loader):
-            inputs, targets = inputs.cuda(), targets.cuda()
-            inputs, targets = Variable(inputs), Variable(targets)
-            outputs, dfeat = net(inputs)
-            # add feature into the array
-            trainfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())  # [4,2560]
-            for i in range(len(targets)):
-                trainfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
-                trainlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
-            idx += len(targets)
-        np.save(os.path.join(cls_resources_dir, 'train_feat.npy'), trainfeat)
-        np.save(os.path.join(cls_resources_dir, 'train_label.npy'), trainlabel)
-        return trainfeat, trainlabel
-
-
-def gen_file_for_gbm():
-    args = env.get_args()
-    train_loader, test_loader = get_loader(args)
-    net, loss, opt = get_net(args)
-    net.eval()
-    gbm = GradientBoostingClassifier(random_state=0)
-    trainfeat, trainlabel = gen_train_gbm_npy(net, train_loader)
-    gbm.fit(trainfeat, trainlabel)
-
-    with torch.no_grad():
-        correct = 0
-        total = 0
-        test_loss = 0
-        test_size = len(test_loader.dataset)
-        testfeat = np.zeros((test_size, 2560 + corp_size * corp_size * corp_size + 1))
-        testlabel = np.zeros((test_size,))
-        idx = 0
-        for batch_idx, (inputs, targets, feat) in enumerate(test_loader):
-            inputs, targets = inputs.cuda(), targets.cuda()
-            inputs, targets = Variable(inputs), Variable(targets)
-            outputs, dfeat = net(inputs)
-            # add feature into the array
-            testfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())
-            for i in range(len(targets)):
-                testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
-                testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
-            idx += len(targets)
-            loss_val = loss(outputs, targets)
-            test_loss += loss_val.item()
-            _, predicted = torch.max(outputs.data, 1)
-            total += targets.size(0)
-            correct += predicted.eq(targets.data).cpu().sum()
-        accout = round(correct.data.cpu().numpy() / total, 4)
-        test_result = gbm.predict(testfeat)
-        prob_result = gbm.predict_proba(testfeat)
-        compare_result = (test_result == testlabel)
-        gbtteacc = round(np.mean(compare_result), 4)
-        df = pd.DataFrame(data=[prob_result[:, 0], prob_result[:, 1], test_result, testlabel, compare_result]).T
-        df.to_excel(os.path.join(cls_resources_dir, 'cls_test_output.xls'))
-        log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d) | Gbt: %.3f' % (test_loss / (batch_idx + 1), 100. * accout,
-                                                                        correct, total, gbtteacc))
-        np.save(os.path.join(cls_resources_dir, 'test_feat.npy'), testfeat)
-        np.save(os.path.join(cls_resources_dir, 'test_label.npy'), testlabel)
+        log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d)' % (test_loss / (batch_idx + 1), 100. * accout,
+                                                            correct, total))
+        np.save(os.path.join(gmb_save_path, 'test_feat.npy'), testfeat)
+        np.save(os.path.join(gmb_save_path, 'test_label.npy'), testlabel)
 
 
 def find_param_for_gbm():
+    # TODO
     trainfeat = np.load(os.path.join(cls_resources_dir, 'train_feat.npy'))
     trainlabel = np.load(os.path.join(cls_resources_dir, 'train_label.npy'))
     random_state = 6
@@ -470,21 +386,28 @@ def find_param_for_gbm():
         json.dump(best_param, f)
 
 
-def gbm_with_cfg():
-    cfg = None
-    with open(os.path.join(cls_resources_dir, 'gbm.json'), 'r') as f:
-        cfg = json.load(f)
-    gbm = GradientBoostingClassifier(random_state=cfg['random_state'], n_estimators=cfg['n_estimators'],
-                                     max_depth=cfg['max_depth'], min_samples_split=cfg['min_samples_split'],
-                                     min_samples_leaf=cfg['min_samples_leaf'], max_features=cfg['max_features'],
-                                     learning_rate=cfg['learning_rate'])
-    trainfeat = np.load(os.path.join(cls_resources_dir, 'train_feat.npy'))
-    trainlabel = np.load(os.path.join(cls_resources_dir, 'train_label.npy'))
-    testfeat = np.load(os.path.join(cls_resources_dir, 'test_feat.npy'))
-    testlabel = np.load(os.path.join(cls_resources_dir, 'test_label.npy'))
-    gbm.fit(trainfeat, trainlabel)
-    acc = round(np.mean(gbm.predict(testfeat) == testlabel), 4)
-    log.info('Result %.3f' % acc)
+def run_gbm():
+    args = env.get_args()
+    for epoch in range(args.start_epoch, args.epochs + 1):
+        gbm_path = get_gbm_file_path(args.model, epoch)
+        gbm = GradientBoostingClassifier(random_state=0)
+        trainfeat = np.load(os.path.join(gbm_path, 'train_feat.npy'))
+        trainlabel = np.load(os.path.join(gbm_path, 'train_label.npy'))
+        testfeat = np.load(os.path.join(gbm_path, 'test_feat.npy'))
+        testlabel = np.load(os.path.join(gbm_path, 'test_label.npy'))
+        gbm.fit(trainfeat, trainlabel)
+        acc = round(np.mean(gbm.predict(testfeat) == testlabel), 4)
+        log.info('Epoch: %03d. Result %.3f' % (epoch, acc))
+
+
+def get_gbm_file_path(model, ep):
+    model_path = os.path.join(cls_resources_dir, model)
+    if not os.path.exists(model_path):
+        os.mkdir(model_path)
+    epoch_path = os.path.join(model_path, ep)
+    if not os.path.exists(epoch_path):
+        os.mkdir(epoch_path)
+    return epoch_path
 
 
 if __name__ == '__main__':
