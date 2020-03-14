@@ -19,6 +19,7 @@ from nodcls.focal_loss import MultiFocalLoss
 from nodcls.models import get_model
 from utils import file, gpu, env
 from utils.log import get_logger
+from utils.threadpool import pool
 
 cls_resources_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'resources')
 
@@ -386,25 +387,40 @@ def find_param_for_gbm():
         json.dump(best_param, f)
 
 
+def run_gbm_in_epoch(model, epoch):
+    gbm_path = get_gbm_file_path(model, epoch)
+    gbm = GradientBoostingClassifier(random_state=0)
+    trainfeat = np.load(os.path.join(gbm_path, 'train_feat.npy'))
+    trainlabel = np.load(os.path.join(gbm_path, 'train_label.npy'))
+    testfeat = np.load(os.path.join(gbm_path, 'test_feat.npy'))
+    testlabel = np.load(os.path.join(gbm_path, 'test_label.npy'))
+    gbm.fit(trainfeat, trainlabel)
+    acc = round(np.mean(gbm.predict(testfeat) == testlabel), 4)
+    log.info('Epoch: %03d. Result %.3f' % (epoch, acc))
+    return epoch, acc
+
+
 def run_gbm():
     args = env.get_args()
+    future_list = []
     for epoch in range(args.start_epoch, args.epochs + 1):
-        gbm_path = get_gbm_file_path(args.model, epoch)
-        gbm = GradientBoostingClassifier(random_state=0)
-        trainfeat = np.load(os.path.join(gbm_path, 'train_feat.npy'))
-        trainlabel = np.load(os.path.join(gbm_path, 'train_label.npy'))
-        testfeat = np.load(os.path.join(gbm_path, 'test_feat.npy'))
-        testlabel = np.load(os.path.join(gbm_path, 'test_label.npy'))
-        gbm.fit(trainfeat, trainlabel)
-        acc = round(np.mean(gbm.predict(testfeat) == testlabel), 4)
-        log.info('Epoch: %03d. Result %.3f' % (epoch, acc))
+        future_list.append(pool.submit(run_gbm_in_epoch, model=args.model, epoch=epoch))
+    dic = {}
+    dic['epoch'] = []
+    dic['acc'] = []
+    for f in future_list:
+        epoch, acc = f.result()
+        dic['epoch'].append(epoch)
+        dic['acc'].append(acc)
+    df = pd.DataFrame(dic)
+    df.to_excel(os.path.join(cls_resources_dir, 'acc_%s.xls' % args.model), index=False)
 
 
 def get_gbm_file_path(model, ep):
     model_path = os.path.join(cls_resources_dir, model)
     if not os.path.exists(model_path):
         os.mkdir(model_path)
-    epoch_path = os.path.join(model_path, ep)
+    epoch_path = os.path.join(model_path, '%03d' % ep)
     if not os.path.exists(epoch_path):
         os.mkdir(epoch_path)
     return epoch_path
