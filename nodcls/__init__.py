@@ -208,8 +208,8 @@ def get_file_list(args):
         bgz = data.shape[2] // 2 - corp_size // 2
         data = np.array(data[bgx:bgx + corp_size, bgy:bgy + corp_size, bgz:bgz + corp_size])
         feat = np.hstack((np.reshape(data, (-1,)) / 255, float(d)))
-        # if srsid.split('-')[0] in test_id_list:
-        if random.randint(0, 9) == 0:
+        if srsid.split('-')[0] in test_id_list:
+        # if random.randint(0, 9) == 0:
             tefnamelst.append(srsid + '.npy')
             telabellst.append(int(label))
             tefeatlst.append(feat)
