@@ -103,9 +103,9 @@ class DPN(nn.Module):
         self.linear = nn.Linear(out_planes[3] + (num_blocks[3] + 1) * dense_depth[3], 2)  # 10)
         self.sa = Self_Attn3D(1528, 1528 // 8, 1528 // 8)
         self.sp_attention = nn.Sequential(
-            nn.Conv3d(2560, 2560 / 8, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.Conv3d(2560, 2560 // 8, kernel_size=3, stride=1, padding=1, bias=False),
             nn.Tanh(),
-            nn.Conv3d(2560 / 8, 1, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.Conv3d(2560 // 8, 1, kernel_size=3, stride=1, padding=1, bias=False),
             # nn.BatchNorm3d(2560)
         )
 

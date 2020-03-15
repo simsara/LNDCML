@@ -121,7 +121,7 @@ def get_cls_net_save_dir(args):
     cls_dir = os.path.join(parent_dir, 'cls')
     if not os.path.exists(cls_dir):
         os.mkdir(cls_dir)
-    net_dir = os.path.join(cls_dir, args.model)
+    net_dir = os.path.join(cls_dir, '%s-f%d' % (args.model, args.cls_test_fold_num))
     if not os.path.exists(net_dir):
         os.mkdir(net_dir)
     return net_dir

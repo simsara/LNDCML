@@ -285,7 +285,7 @@ def try_resume(net, args, para: bool = False):
 
 def get_learning_rate(epoch, max_epoch):
     if epoch < 0.5 * max_epoch:
-        lr = 0.005  # args.lr
+        lr = 0.01
     elif epoch < 0.8 * max_epoch:
         lr = 0.001
     else:
@@ -312,7 +312,7 @@ def run_train():
     save_dir = file.get_cls_net_save_dir(args)
 
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 2):  # 跑完所有的epoch
-        gmb_save_path = get_gbm_file_path(args.model, epoch)
+        gmb_save_path = get_gbm_file_path(args.model, epoch, args.cls_test_fold_num)
         train(net, loss, opt, train_loader, epoch - 1, args.epochs, gmb_save_path)
         test(net, loss, test_loader, gmb_save_path)
 
@@ -453,8 +453,8 @@ def find_param_for_gbm():
         json.dump(best_param, f)
 
 
-def run_gbm_in_epoch(model, epoch):
-    gbm_path = get_gbm_file_path(model, epoch)
+def run_gbm_in_epoch(model, epoch, test_fold):
+    gbm_path = get_gbm_file_path(model, epoch, test_fold)
     gbm = GradientBoostingClassifier(max_depth=1, random_state=0)
     trainfeat = np.load(os.path.join(gbm_path, 'train_feat.npy'))
     trainlabel = np.load(os.path.join(gbm_path, 'train_label.npy'))
@@ -466,7 +466,7 @@ def run_gbm_in_epoch(model, epoch):
     gbtteacc = round(np.mean(compare_result), 4)
     prob_result = gbm.predict_proba(testfeat)
     df = pd.DataFrame(data=[prob_result[:, 0], prob_result[:, 1], test_result, testlabel, compare_result]).T
-    df.to_excel(os.path.join(gbm_path, 'cls_prob.xls'))
+    df.to_excel(os.path.join(gbm_path, 'cls_prob_f%d.xls' % test_fold))
 
     log.info('Epoch: %03d. Result %.3f' % (epoch, gbtteacc))
     return epoch, gbtteacc
@@ -476,7 +476,8 @@ def run_gbm():
     args = env.get_args()
     future_list = []
     for epoch in range(args.start_epoch, args.epochs + 1):
-        future_list.append(pool.submit(run_gbm_in_epoch, model=args.model, epoch=epoch))
+        future_list.append(pool.submit(run_gbm_in_epoch,
+                                       model=args.model, epoch=epoch, test_fold=args.cls_test_fold_num))
     dic = {}
     dic['epoch'] = []
     dic['acc'] = []
@@ -488,8 +489,8 @@ def run_gbm():
     df.to_excel(os.path.join(cls_resources_dir, 'acc_%s.xls' % args.model), index=False)
 
 
-def get_gbm_file_path(model, ep):
-    model_path = os.path.join(cls_resources_dir, model)
+def get_gbm_file_path(model, ep, test_fold):
+    model_path = os.path.join(cls_resources_dir, '%s-f%d' % (model, test_fold))
     if not os.path.exists(model_path):
         os.mkdir(model_path)
     epoch_path = os.path.join(model_path, '%03d' % ep)
@@ -498,64 +499,39 @@ def get_gbm_file_path(model, ep):
     return epoch_path
 
 
-def convert_net():
+def convert_net_from_baseline():
     args = env.get_args()
-    epoch = 1
+    epoch = args.start_epoch
     net_path = file.get_cls_net_save_dir(args)
-    checkpoint = torch.load(os.path.join(net_path, 'final-f5.t7'))
+    checkpoint = torch.load(os.path.join(cls_resources_dir, args.cls_ck))
     net = checkpoint['net']
-    dummy = torch.randn(1, 1, 32, 32, 32)
     net.cuda()
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
-    test_out, test_out_1 = net(dummy)
-    saved_model = file.get_cls_net_save_file_path_name(args, epoch)
-    state_dict = net.state_dict()
-    for key in state_dict.keys():
-        state_dict[key] = state_dict[key].cpu()
-        torch.save({
-            'epoch': epoch,
-            'save_dir': net_path,
-            'state_dict': state_dict,
-            'args': args
-        }, saved_model)
 
     gpu.set_gpu(args.gpu)
     model = get_model(args.model)
-    net = model.get_model()
-    net = torch.nn.DataParallel(net).cuda()
-    checkpoint = torch.load(saved_model)
-    new_state_dict = OrderedDict()
-    for k, v in checkpoint['state_dict'].items():
-        name = 'module.%s' % k  # add `module.`
-        new_state_dict[name] = v
-    net.load_state_dict(new_state_dict)
-    state_dict = net.module.state_dict()
-    for key in state_dict.keys():
-        state_dict[key] = state_dict[key].cpu()
+    new_net = model.get_model()
+    new_dict = new_net.state_dict()
+
+    old_dict = net.module.state_dict()
+    to_update = {}
+    for key in old_dict.keys():
+        if key not in new_dict:
+            continue
+        to_update[key] = old_dict[key].cpu()
+    new_dict.update(to_update)
+    new_net.load_state_dict(new_dict)
+
+    to_save = new_net.state_dict()
+    for key in to_save.keys():
+        to_save[key] = to_save[key].cpu()
     torch.save({
         'epoch': epoch,
         'save_dir': net_path,
-        'state_dict': state_dict,
+        'state_dict': to_save,
         'args': args
-    }, saved_model)
-
-
-def cls_with_net():
-    args = env.get_args()
-    cls_ck = os.path.join(cls_resources_dir, args.cls_ck)
-    checkpoint = torch.load(cls_ck)
-    net = checkpoint['net']
-    net.cuda()
-    net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
-    train_loader, test_loader = get_loader(args)
-    loss = CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=args.learning_rate, momentum=0.9, weight_decay=5e-4)
-    for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 2):  # 跑完所有的epoch
-        gmb_save_path = get_gbm_file_path(args.model, epoch)
-        train(net, loss, optimizer, train_loader, epoch - 1, args.epochs, gmb_save_path)
-        test(net, loss, test_loader, gmb_save_path)
-    run_gbm()
+    }, file.get_cls_net_save_file_path_name(args, epoch))
 
 
 if __name__ == '__main__':
-    convert_net()
+    convert_net_from_baseline()

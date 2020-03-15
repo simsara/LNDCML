@@ -25,7 +25,7 @@ if __name__ == '__main__':
         detect_test.run()
     elif args.job == 'cls-run-gbm':
         nodcls.run_gbm()
-    elif args.job == 'cls-sk':
-        nodcls.cls_with_net()
+    elif args.job == 'cls-from-bl':
+        nodcls.convert_net_from_baseline()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)
