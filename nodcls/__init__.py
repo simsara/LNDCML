@@ -312,7 +312,7 @@ def run_train():
     save_dir = file.get_cls_net_save_dir(args)
 
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 2):  # 跑完所有的epoch
-        gmb_save_path = get_gbm_file_path(args.model, epoch, args.cls_test_fold_num)
+        gmb_save_path = get_gbm_file_path(args.model, epoch - 1, args.cls_test_fold_num)
         train(net, loss, opt, train_loader, epoch - 1, args.epochs, gmb_save_path)
         test(net, loss, test_loader, gmb_save_path)
 
@@ -503,12 +503,11 @@ def convert_net_from_baseline():
     args = env.get_args()
     epoch = 1
     net_path = file.get_cls_net_save_dir(args)
-    checkpoint = torch.load(os.path.join(cls_resources_dir, args.cls_ck))
+    checkpoint = torch.load(os.path.join(cls_resources_dir, args.cls_ck), encoding='utf-8')
     net = checkpoint['net']
     net.cuda()
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
 
-    gpu.set_gpu(args.gpu)
     model = get_model(args.model)
     new_net = model.get_model()
     new_dict = new_net.state_dict()
