@@ -501,7 +501,7 @@ def get_gbm_file_path(model, ep, test_fold):
 
 def convert_net_from_baseline():
     args = env.get_args()
-    epoch = args.start_epoch
+    epoch = 1
     net_path = file.get_cls_net_save_dir(args)
     checkpoint = torch.load(os.path.join(cls_resources_dir, args.cls_ck))
     net = checkpoint['net']
