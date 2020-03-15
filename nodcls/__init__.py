@@ -1,9 +1,9 @@
 import json
 import os
-import random
 import shutil
 from collections import OrderedDict
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -26,6 +26,41 @@ cls_resources_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'r
 log = get_logger(__name__)
 corp_size = 32
 col_names = ['seriesuid', 'coordX', 'coordY', 'coordZ', 'diameter_mm', 'malignant']
+
+
+def show_nodules():
+    csv_file = os.path.join(file.get_cls_data_path(), 'annotationdetclsconvfnl_v3.csv')
+    csv_data = pd.read_csv(csv_file, names=col_names)
+
+    id_l = csv_data.seriesuid.tolist()[1:]
+    x_l = csv_data.coordX.tolist()[1:]
+    y_l = csv_data.coordY.tolist()[1:]
+    z_l = csv_data.coordZ.tolist()[1:]
+    d_l = csv_data.diameter_mm.tolist()[1:]
+    m_l = csv_data.malignant.tolist()[1:]
+
+    save_path = file.get_cls_corp_path()
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
+    for idx in range(len(id_l)):
+        fname = id_l[idx]
+        pid = fname.split('-')[0]
+        x = int(float(x_l[idx]))
+        y = int(float(y_l[idx]))
+        z = int(float(z_l[idx]))
+        dim = int(float(d_l[idx]))
+        clean_file_name = file.get_clean_file_path_name(pid)
+        preprocess_file = np.load(clean_file_name)
+
+        fig = plt.figure()
+        #     print z,x,y
+        dat0 = np.array(preprocess_file[0, z, :, :])
+        dat0[max(0, x - 10):min(dat0.shape[0], x + 10), max(0, y - 10)] = 255
+        dat0[max(0, x - 10):min(dat0.shape[0], x + 10), min(dat0.shape[1], y + 10)] = 255
+        dat0[max(0, x - 10), max(0, y - 10):min(dat0.shape[1], y + 10)] = 255
+        dat0[min(dat0.shape[0], x + 10), max(0, y - 10):min(dat0.shape[1], y + 10)] = 255
+        plt.imshow(dat0, 'gray')
+        plt.show()
 
 
 def preprocess():
@@ -427,4 +462,4 @@ def get_gbm_file_path(model, ep):
 
 
 if __name__ == '__main__':
-    preprocess()
+    show_nodules()
