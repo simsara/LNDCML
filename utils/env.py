@@ -50,6 +50,8 @@ parser.add_argument('--cls-test-fold-num', default=0, type=int, metavar='N',
                     help='cls的test用哪个文件夹')
 parser.add_argument('--prd-file', default='', type=str, metavar='N',
                     help='使用模型去跑mhd')
+parser.add_argument('--cls-ck', default='', type=str, metavar='N',
+                    help='用模型去跑cls')
 
 
 

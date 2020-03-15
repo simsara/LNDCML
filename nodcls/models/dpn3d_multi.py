@@ -76,22 +76,15 @@ class DPN(nn.Module):
 
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
-        out = F.avg_pool3d(out, 4)
+        out1 = self.layer1(out)
+        out2 = self.layer2(out1)
+        out3 = self.layer3(out2)
+        out4 = self.layer4(out3)
+        out = F.avg_pool3d(out4, 4)
         out_1 = out.view(out.size(0), -1)
         out = self.linear(out_1)
-        return out, out_1
+        return out
 
 
 def get_model():
     return DPN(get_common_config())
-
-
-if __name__ == '__main__':
-    test_net = get_model()
-    dummy = torch.randn(1, 1, 32, 32, 32)
-    test_out, test_out_1 = test_net(dummy)
-    print(test_out)

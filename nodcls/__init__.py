@@ -209,7 +209,7 @@ def get_file_list(args):
         data = np.array(data[bgx:bgx + corp_size, bgy:bgy + corp_size, bgz:bgz + corp_size])
         feat = np.hstack((np.reshape(data, (-1,)) / 255, float(d)))
         if srsid.split('-')[0] in test_id_list:
-        # if random.randint(0, 9) == 0:
+            # if random.randint(0, 9) == 0:
             tefnamelst.append(srsid + '.npy')
             telabellst.append(int(label))
             tefeatlst.append(feat)
@@ -224,8 +224,8 @@ def get_file_list(args):
         tefeatlst[idx][-1] /= mxd
     log.info(
         '[Existed] Size of train files: %d. Size of test files: %d.' % (len(trfnamelst), len(tefnamelst)))  # 912 92
-    log.info('Train list: %s', str([f[:-4] for f in trfnamelst]))
-    log.info('Test list: %s', str([f[:-4] for f in tefnamelst]))
+    # log.info('Train list: %s', str([f[:-4] for f in trfnamelst]))
+    # log.info('Test list: %s', str([f[:-4] for f in tefnamelst]))
 
     return trfnamelst, trlabellst, trfeatlst, tefnamelst, telabellst, tefeatlst
 
@@ -461,9 +461,15 @@ def run_gbm_in_epoch(model, epoch):
     testfeat = np.load(os.path.join(gbm_path, 'test_feat.npy'))
     testlabel = np.load(os.path.join(gbm_path, 'test_label.npy'))
     gbm.fit(trainfeat, trainlabel)
-    acc = round(np.mean(gbm.predict(testfeat) == testlabel), 4)
-    log.info('Epoch: %03d. Result %.3f' % (epoch, acc))
-    return epoch, acc
+    test_result = gbm.predict(testfeat)
+    compare_result = (test_result == testlabel)
+    gbtteacc = round(np.mean(compare_result), 4)
+    prob_result = gbm.predict_proba(testfeat)
+    df = pd.DataFrame(data=[prob_result[:, 0], prob_result[:, 1], test_result, testlabel, compare_result]).T
+    df.to_excel(os.path.join(gbm_path, 'cls_prob.xls'))
+
+    log.info('Epoch: %03d. Result %.3f' % (epoch, gbtteacc))
+    return epoch, gbtteacc
 
 
 def run_gbm():
@@ -492,5 +498,64 @@ def get_gbm_file_path(model, ep):
     return epoch_path
 
 
+def convert_net():
+    args = env.get_args()
+    epoch = 1
+    net_path = file.get_cls_net_save_dir(args)
+    checkpoint = torch.load(os.path.join(net_path, 'final-f5.t7'))
+    net = checkpoint['net']
+    dummy = torch.randn(1, 1, 32, 32, 32)
+    net.cuda()
+    net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
+    test_out, test_out_1 = net(dummy)
+    saved_model = file.get_cls_net_save_file_path_name(args, epoch)
+    state_dict = net.state_dict()
+    for key in state_dict.keys():
+        state_dict[key] = state_dict[key].cpu()
+        torch.save({
+            'epoch': epoch,
+            'save_dir': net_path,
+            'state_dict': state_dict,
+            'args': args
+        }, saved_model)
+
+    gpu.set_gpu(args.gpu)
+    model = get_model(args.model)
+    net = model.get_model()
+    net = torch.nn.DataParallel(net).cuda()
+    checkpoint = torch.load(saved_model)
+    new_state_dict = OrderedDict()
+    for k, v in checkpoint['state_dict'].items():
+        name = 'module.%s' % k  # add `module.`
+        new_state_dict[name] = v
+    net.load_state_dict(new_state_dict)
+    state_dict = net.module.state_dict()
+    for key in state_dict.keys():
+        state_dict[key] = state_dict[key].cpu()
+    torch.save({
+        'epoch': epoch,
+        'save_dir': net_path,
+        'state_dict': state_dict,
+        'args': args
+    }, saved_model)
+
+
+def cls_with_net():
+    args = env.get_args()
+    cls_ck = os.path.join(cls_resources_dir, args.cls_ck)
+    checkpoint = torch.load(cls_ck)
+    net = checkpoint['net']
+    net.cuda()
+    net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
+    train_loader, test_loader = get_loader(args)
+    loss = CrossEntropyLoss()
+    optimizer = optim.SGD(net.parameters(), lr=args.learning_rate, momentum=0.9, weight_decay=5e-4)
+    for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 2):  # 跑完所有的epoch
+        gmb_save_path = get_gbm_file_path(args.model, epoch)
+        train(net, loss, optimizer, train_loader, epoch - 1, args.epochs, gmb_save_path)
+        test(net, loss, test_loader, gmb_save_path)
+    run_gbm()
+
+
 if __name__ == '__main__':
-    preprocess()
+    convert_net()

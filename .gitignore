@@ -10,3 +10,4 @@ venv/
 test_resources/
 nodcls/resources/
 eval/*.xls
+/models/

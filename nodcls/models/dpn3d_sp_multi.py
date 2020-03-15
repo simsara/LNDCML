@@ -18,14 +18,14 @@ class Bottleneck(nn.Module):
         self.bn1 = nn.BatchNorm3d(in_planes)
         self.conv2 = nn.Conv3d(in_planes, in_planes, kernel_size=3, stride=stride, padding=1, groups=32, bias=False)
         self.bn2 = nn.BatchNorm3d(in_planes)
-        self.conv3 = nn.Conv3d(in_planes, out_planes+dense_depth, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm3d(out_planes+dense_depth)
+        self.conv3 = nn.Conv3d(in_planes, out_planes + dense_depth, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm3d(out_planes + dense_depth)
 
         self.shortcut = nn.Sequential()
         if first_layer:
             self.shortcut = nn.Sequential(
-                nn.Conv3d(last_planes, out_planes+dense_depth, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm3d(out_planes+dense_depth)
+                nn.Conv3d(last_planes, out_planes + dense_depth, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm3d(out_planes + dense_depth)
             )
 
     def forward(self, x):
@@ -39,7 +39,7 @@ class Bottleneck(nn.Module):
         x = self.shortcut(x)
         d = self.out_planes
         # print 'bottleneck_4', x.size(), self.last_planes, self.out_planes+self.dense_depth, d
-        out = torch.cat([x[:,:d,:,:]+out[:,:d,:,:], x[:,d:,:,:], out[:,d:,:,:]], 1)
+        out = torch.cat([x[:, :d, :, :] + out[:, :d, :, :], x[:, d:, :, :], out[:, d:, :, :]], 1)
         # print 'bottleneck_5', out.size()
         out = F.relu(out)
         return out
@@ -63,14 +63,29 @@ class DPN(nn.Module):
         self.layer2 = self._make_layer(in_planes[1], out_planes[1], num_blocks[1], dense_depth[1], stride=2)
         self.layer3 = self._make_layer(in_planes[2], out_planes[2], num_blocks[2], dense_depth[2], stride=2)
         self.layer4 = self._make_layer(in_planes[3], out_planes[3], num_blocks[3], dense_depth[3], stride=2)
-        self.linear = nn.Linear(out_planes[3]+(num_blocks[3]+1)*dense_depth[3], 2)#10)
+        self.linear = nn.Linear(out_planes[3] + (num_blocks[3] + 1) * dense_depth[3], 2)  # 10)
+
+        self.sp_attention = nn.Sequential(
+            nn.Conv3d(2560, 2560 / 8, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.Tanh(),
+            nn.Conv3d(2560 / 8, 1, kernel_size=3, stride=1, padding=1, bias=False),
+            # nn.BatchNorm3d(2560)
+        )
+        self.gavg = nn.AvgPool3d(kernel_size=8)
+        self.sp_attention2 = nn.Sequential(
+            nn.Conv3d(1528, 1528 / 8, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.Tanh(),
+            nn.Conv3d(1528 / 8, 1, kernel_size=3, stride=1, padding=1, bias=False),
+            # nn.BatchNorm3d(2560)
+        )
+        self.linear2 = nn.Linear(4088, 2)  # 10)
 
     def _make_layer(self, in_planes, out_planes, num_blocks, dense_depth, stride):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
-        for i,stride in enumerate(strides):
-            layers.append(Bottleneck(self.last_planes, in_planes, out_planes, dense_depth, stride, i==0))
-            self.last_planes = out_planes + (i+2) * dense_depth
+        for i, stride in enumerate(strides):
+            layers.append(Bottleneck(self.last_planes, in_planes, out_planes, dense_depth, stride, i == 0))
+            self.last_planes = out_planes + (i + 2) * dense_depth
             # print '_make_layer', i, layers[-1].size()
         return nn.Sequential(*layers)
 
@@ -78,20 +93,17 @@ class DPN(nn.Module):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
-        out = F.avg_pool3d(out, 4)
+        out1 = self.layer3(out)
+        out = self.layer4(out1)
+        out_2 = self.sp_attention(out)
+        out_att1 = torch.sum((out_2 * out).view(out.size(0), out.size(1), -1), 2)
+        out_3 = self.sp_attention2(out1)
+        out_att2 = torch.sum((out_3 * out1).view(out1.size(0), out1.size(1), -1), 2)
+        out = torch.cat((out_att1, out_att2), 1)
         out_1 = out.view(out.size(0), -1)
-        out = self.linear(out_1)
-        return out, out_1
+        out = self.linear2(out_1)
+        return out, out_2
 
 
 def get_model():
     return DPN(get_common_config())
-
-
-if __name__ == '__main__':
-    test_net = get_model()
-    dummy = torch.randn(1, 1, 32, 32, 32)
-    test_out, test_out_1 = test_net(dummy)
-    print(test_out)
