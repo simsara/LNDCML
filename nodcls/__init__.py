@@ -285,8 +285,8 @@ def try_resume(net, args, para: bool = False):
 
 def get_learning_rate(epoch, max_epoch):
     if epoch < 0.5 * max_epoch:
-        lr = 0.01  # args.lr
-    #elif epoch < 0.8 * max_epoch:
+        lr = 0.005  # args.lr
+    elif epoch < 0.8 * max_epoch:
         lr = 0.001
     else:
         lr = 0.0001
