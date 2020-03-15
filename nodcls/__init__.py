@@ -508,9 +508,9 @@ def gen_gbm_file():
     net.eval()
 
     with torch.no_grad():
-        for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 2):
+        for epoch in range(max(args.start_epoch, 1), args.epochs + 1):
             gmb_save_path = get_gbm_file_path(args.model, epoch, args.cls_test_fold_num)
-            log.info('Training epoch: %d.' % epoch)
+            log.info('Epoch: %d.' % epoch)
             train_loss = 0
             correct = 0
             total = 0
@@ -519,7 +519,7 @@ def gen_gbm_file():
             idx = 0
             for batch_idx, (inputs, targets, feat) in enumerate(train_loader):
                 inputs, targets = inputs.cuda(), targets.cuda()
-                inputs, targets = Variable(inputs, requires_grad=True), Variable(targets)
+                inputs, targets = Variable(inputs), Variable(targets)
                 outputs, dfeat = net(inputs)
                 # add feature into the array
                 trainfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())  # [4,2560]
