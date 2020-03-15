@@ -56,6 +56,10 @@ def get_clean_file_path_name(uid):
     return get_file_path_name_by_uid(get_preprocess_result_path(), uid, '_clean.npy')
 
 
+def get_label_file_path_name(uid):
+    return get_file_path_name_by_uid(get_preprocess_result_path(), uid, '_label.npy')
+
+
 def get_net_save_dir(args):
     parent_dir = env.get('net_save_dir')
     if not os.path.exists(parent_dir):
