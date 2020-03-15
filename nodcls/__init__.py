@@ -389,7 +389,7 @@ def find_param_for_gbm():
 
 def run_gbm_in_epoch(model, epoch):
     gbm_path = get_gbm_file_path(model, epoch)
-    gbm = GradientBoostingClassifier(random_state=0)
+    gbm = GradientBoostingClassifier(max_depth=1, random_state=0)
     trainfeat = np.load(os.path.join(gbm_path, 'train_feat.npy'))
     trainlabel = np.load(os.path.join(gbm_path, 'train_label.npy'))
     testfeat = np.load(os.path.join(gbm_path, 'test_feat.npy'))
