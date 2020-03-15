@@ -42,9 +42,9 @@ class DPN(nn.Module):
         out = self.layer3(out)  # 8 * 1528
         out = self.layer4(out)  # 4 * 2560
         out = F.avg_pool3d(out, 4)  # 1 * 2560
-        out = self.drop(out)
         out_1 = out.view(out.size(0), -1)
-        out = self.linear(out_1)  # 1 * 2
+        out = self.drop(out_1)
+        out = self.linear(out)  # 1 * 2
         return out, out_1
 
 

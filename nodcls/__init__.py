@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import shutil
 from collections import OrderedDict
 
@@ -20,12 +21,14 @@ from nodcls.models import get_model
 from utils import file, gpu, env
 from utils.log import get_logger
 from utils.threadpool import pool
+from utils.tools import load_itk_image, VoxelToWorldCoord, world_to_voxel
 
 cls_resources_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'resources')
 
 log = get_logger(__name__)
 corp_size = 32
 col_names = ['seriesuid', 'coordX', 'coordY', 'coordZ', 'diameter_mm', 'malignant']
+resolution = np.array([1, 1, 1])
 
 
 def show_nodules():
@@ -43,16 +46,38 @@ def show_nodules():
     if not os.path.exists(save_path):
         os.mkdir(save_path)
     for idx in range(len(id_l)):
+        zz = float(x_l[idx])
+        xx = float(y_l[idx])
+        yy = float(z_l[idx])
+        dd = float(d_l[idx])
         fname = id_l[idx]
         pid = fname.split('-')[0]
-        x = int(float(x_l[idx]))
-        y = int(float(y_l[idx]))
-        z = int(float(z_l[idx]))
-        dim = int(float(d_l[idx]))
+        coord = np.asarray([xx, yy, zz])
         clean_file_name = file.get_clean_file_path_name(pid)
-        preprocess_file = np.load(clean_file_name)
 
-        fig = plt.figure()
+        mhd_file_name = file.get_mhd_file_path_name(pid)
+        slice_img, origin, spacing, is_flip = load_itk_image(mhd_file_name)
+
+        mask_file_name = file.get_mask_file_path_name(pid)
+        mask_img = np.load(mask_file_name)
+
+        space_file_name = file.get_space_file_path_name(pid)
+        spacing = np.load(space_file_name)
+
+        origin_file_name = file.get_origin_file_path_name(pid)
+        origin = np.load(origin_file_name)
+
+        extend_box_file_name = file.get_extend_file_path_name(pid)
+        extend_box = np.load(extend_box_file_name)
+
+        label_file_name = file.get_label_file_path_name(pid)
+        label_data = np.load(label_file_name, allow_pickle=True)
+
+        x = int(xx)
+        y = int(yy)
+        z = int(zz)
+
+        preprocess_file = np.load(clean_file_name)
         #     print z,x,y
         dat0 = np.array(preprocess_file[0, z, :, :])
         dat0[max(0, x - 10):min(dat0.shape[0], x + 10), max(0, y - 10)] = 255
@@ -183,7 +208,8 @@ def get_file_list(args):
         bgz = data.shape[2] // 2 - corp_size // 2
         data = np.array(data[bgx:bgx + corp_size, bgy:bgy + corp_size, bgz:bgz + corp_size])
         feat = np.hstack((np.reshape(data, (-1,)) / 255, float(d)))
-        if srsid.split('-')[0] in test_id_list:
+        # if srsid.split('-')[0] in test_id_list:
+        if random.randint(0, 9) == 0:
             tefnamelst.append(srsid + '.npy')
             telabellst.append(int(label))
             tefeatlst.append(feat)
@@ -198,6 +224,8 @@ def get_file_list(args):
         tefeatlst[idx][-1] /= mxd
     log.info(
         '[Existed] Size of train files: %d. Size of test files: %d.' % (len(trfnamelst), len(tefnamelst)))  # 912 92
+    log.info('Train list: %s', str([f[:-4] for f in trfnamelst]))
+    log.info('Test list: %s', str([f[:-4] for f in tefnamelst]))
 
     return trfnamelst, trlabellst, trfeatlst, tefnamelst, telabellst, tefeatlst
 
@@ -215,7 +243,9 @@ def get_loader(args):
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
                                               shuffle=True, num_workers=args.workers)
 
-    testset = lunanod(preprocesspath, tefnamelst, telabellst, tefeatlst, train=False, transform=transform_test)
+    testset = lunanod(preprocesspath,
+                      tefnamelst, telabellst, tefeatlst,
+                      train=False, transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size,
                                              shuffle=False, num_workers=args.workers)
     log.info('[Used] Size of train files: %d. Size of test files: %d.' % (len(trainset), len(testset)))
@@ -256,7 +286,7 @@ def try_resume(net, args, para: bool = False):
 def get_learning_rate(epoch, max_epoch):
     if epoch < 0.5 * max_epoch:
         lr = 0.01  # args.lr
-    elif epoch < 0.8 * max_epoch:
+    #elif epoch < 0.8 * max_epoch:
         lr = 0.001
     else:
         lr = 0.0001
@@ -462,4 +492,4 @@ def get_gbm_file_path(model, ep):
 
 
 if __name__ == '__main__':
-    show_nodules()
+    preprocess()
