@@ -1,6 +1,5 @@
 import json
 import os
-import random
 import shutil
 from collections import OrderedDict
 
@@ -8,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn as nn
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV
 from torch import optim
@@ -21,7 +21,7 @@ from nodcls.models import get_model
 from utils import file, gpu, env
 from utils.log import get_logger
 from utils.threadpool import pool
-from utils.tools import load_itk_image, VoxelToWorldCoord, world_to_voxel
+from utils.tools import load_itk_image
 
 cls_resources_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'resources')
 
@@ -314,7 +314,7 @@ def run_train():
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 2):  # 跑完所有的epoch
         gmb_save_path = get_gbm_file_path(args.model, epoch - 1, args.cls_test_fold_num)
         train(net, loss, opt, train_loader, epoch - 1, args.epochs, gmb_save_path)
-        test(net, loss, test_loader, gmb_save_path)
+        test(net, loss, test_loader, gmb_save_path, args.cls_test_fold_num)
 
         if epoch <= args.epochs:
             state_dict = net.module.state_dict()
@@ -368,15 +368,19 @@ def train(net, criterion, optimizer, train_loader, epoch, max_epoch, gmb_save_pa
     np.save(os.path.join(gmb_save_path, 'train_label.npy'), trainlabel)
 
 
-def test(net, criterion, test_loader, gmb_save_path):
+def test(net, criterion, test_loader, gmb_save_path, test_fold):
     test_size = len(test_loader.dataset)
     net.eval()
+    soft = nn.Softmax(dim=-1)
     with torch.no_grad():
         test_loss = 0
         correct = 0
         total = 0
         testfeat = np.zeros((test_size, 2560 + corp_size * corp_size * corp_size + 1))
         testlabel = np.zeros((test_size,))
+        prob0_list = np.zeros((test_size,))
+        prob1_list = np.zeros((test_size,))
+        predict_list = np.zeros((test_size,))
         idx = 0
         for batch_idx, (inputs, targets, feat) in enumerate(test_loader):
             inputs, targets = inputs.cuda(), targets.cuda()
@@ -384,21 +388,31 @@ def test(net, criterion, test_loader, gmb_save_path):
             outputs, dfeat = net(inputs)
             # add feature into the array
             testfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())
-            for i in range(len(targets)):
-                testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
-                testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
-            idx += len(targets)
 
             loss = criterion(outputs, targets)
             test_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)
             total += targets.size(0)
             correct += predicted.eq(targets.data).cpu().sum()
+            prob = soft(outputs)
+            for i in range(len(targets)):
+                testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
+                testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
+                prob0_list[idx + i] = prob[i][0]
+                prob1_list[idx + i] = prob[i][1]
+                predict_list[idx + i] = predicted[i]
+
+            idx += len(targets)
+
         accout = round(correct.data.cpu().numpy() / total, 4)
         log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d)' % (test_loss / (batch_idx + 1), 100. * accout,
                                                             correct, total))
         np.save(os.path.join(gmb_save_path, 'test_feat.npy'), testfeat)
         np.save(os.path.join(gmb_save_path, 'test_label.npy'), testlabel)
+
+        compare_result = (predict_list == testlabel)
+        df = pd.DataFrame(data=[prob0_list, prob1_list, predict_list, testlabel, compare_result]).T
+        df.to_excel(os.path.join(gmb_save_path, 'cls_prob_f%d.xls' % test_fold))
 
 
 def find_param_for_gbm():
