@@ -311,21 +311,22 @@ def run_train():
     net, loss, opt = get_net(args)
     save_dir = file.get_cls_net_save_dir(args)
 
-    for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 1):  # 跑完所有的epoch
+    for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 2):  # 跑完所有的epoch
         gmb_save_path = get_gbm_file_path(args.model, epoch)
-        train(net, loss, opt, train_loader, epoch, args.epochs, gmb_save_path)
+        train(net, loss, opt, train_loader, epoch - 1, args.epochs, gmb_save_path)
         test(net, loss, test_loader, gmb_save_path)
 
-        state_dict = net.module.state_dict()
-        for key in state_dict.keys():
-            state_dict[key] = state_dict[key].cpu()
-        torch.save({
-            'epoch': epoch,
-            'save_dir': save_dir,
-            'state_dict': state_dict,
-            'args': args
-        }, file.get_cls_net_save_file_path_name(args, epoch))
-        log.info('Saved epoch %d' % epoch)
+        if epoch <= args.epochs:
+            state_dict = net.module.state_dict()
+            for key in state_dict.keys():
+                state_dict[key] = state_dict[key].cpu()
+            torch.save({
+                'epoch': epoch,
+                'save_dir': save_dir,
+                'state_dict': state_dict,
+                'args': args
+            }, file.get_cls_net_save_file_path_name(args, epoch))
+            log.info('Saved epoch %d' % epoch)
 
 
 def train(net, criterion, optimizer, train_loader, epoch, max_epoch, gmb_save_path):
