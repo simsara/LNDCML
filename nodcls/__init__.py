@@ -499,6 +499,76 @@ def get_gbm_file_path(model, ep, test_fold):
     return epoch_path
 
 
+def gen_gbm_file():
+    args = env.get_args()
+    train_loader, test_loader = get_loader(args)
+    net, criterion, _ = get_net(args)
+
+    train_size = len(train_loader.dataset)
+    net.eval()
+
+    with torch.no_grad():
+        for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 2):
+            gmb_save_path = get_gbm_file_path(args.model, epoch, args.cls_test_fold_num)
+            log.info('Training epoch: %d.' % epoch)
+            train_loss = 0
+            correct = 0
+            total = 0
+            trainfeat = np.zeros((train_size, 2560 + corp_size * corp_size * corp_size + 1))
+            trainlabel = np.zeros((train_size,))
+            idx = 0
+            for batch_idx, (inputs, targets, feat) in enumerate(train_loader):
+                inputs, targets = inputs.cuda(), targets.cuda()
+                inputs, targets = Variable(inputs, requires_grad=True), Variable(targets)
+                outputs, dfeat = net(inputs)
+                # add feature into the array
+                trainfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())  # [4,2560]
+                for i in range(len(targets)):
+                    trainfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
+                    trainlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
+                idx += len(targets)
+
+                loss = criterion(outputs, targets)
+                train_loss += loss.item()
+                _, predicted = torch.max(outputs.data, 1)
+                total += targets.size(0)
+                correct += predicted.eq(targets.data).cpu().sum()
+            accout = round(correct.data.cpu().numpy() / total, 4)
+            log.info('Train Loss: %.3f | Acc: %.3f%% (%d/%d)' % (train_loss / (batch_idx + 1), 100. * accout,
+                                                                 correct, total))
+            np.save(os.path.join(gmb_save_path, 'train_feat.npy'), trainfeat)
+            np.save(os.path.join(gmb_save_path, 'train_label.npy'), trainlabel)
+
+            test_size = len(test_loader.dataset)
+            test_loss = 0
+            correct = 0
+            total = 0
+            testfeat = np.zeros((test_size, 2560 + corp_size * corp_size * corp_size + 1))
+            testlabel = np.zeros((test_size,))
+            idx = 0
+            for batch_idx, (inputs, targets, feat) in enumerate(test_loader):
+                inputs, targets = inputs.cuda(), targets.cuda()
+                inputs, targets = Variable(inputs), Variable(targets)
+                outputs, dfeat = net(inputs)
+                # add feature into the array
+                testfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())
+                for i in range(len(targets)):
+                    testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
+                    testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
+                idx += len(targets)
+
+                loss = criterion(outputs, targets)
+                test_loss += loss.item()
+                _, predicted = torch.max(outputs.data, 1)
+                total += targets.size(0)
+                correct += predicted.eq(targets.data).cpu().sum()
+            accout = round(correct.data.cpu().numpy() / total, 4)
+            log.info('Test Loss: %.3f | Acc: %.3f%% (%d/%d)' % (test_loss / (batch_idx + 1), 100. * accout,
+                                                                correct, total))
+            np.save(os.path.join(gmb_save_path, 'test_feat.npy'), testfeat)
+            np.save(os.path.join(gmb_save_path, 'test_label.npy'), testlabel)
+
+
 def convert_net_from_baseline():
     args = env.get_args()
     epoch = 1

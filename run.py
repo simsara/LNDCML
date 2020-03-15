@@ -27,5 +27,7 @@ if __name__ == '__main__':
         nodcls.run_gbm()
     elif args.job == 'cls-convert':
         nodcls.convert_net_from_baseline()
+    elif args.job == 'cls-gen-gbm':
+        nodcls.gen_gbm_file()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)
