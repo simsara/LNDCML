@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import optim
 
 from nodcls.models import get_common_config
 
@@ -87,7 +88,10 @@ class DPN(nn.Module):
 
 
 def get_model():
-    return DPN(get_common_config())
+    net = DPN(get_common_config())
+    loss = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=0.01, momentum=0.9, weight_decay=5e-4)
+    return net, loss, optimizer
 
 
 if __name__ == '__main__':
