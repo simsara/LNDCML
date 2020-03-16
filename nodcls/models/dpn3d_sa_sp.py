@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import optim
 
 from torch.autograd import Variable
 
@@ -133,4 +134,13 @@ class DPN(nn.Module):
 
 
 def get_model():
-    return DPN(get_common_config())
+    net = DPN(get_common_config())
+    net.bn1.requires_grad = False
+    net.conv1.requires_grad = False
+    net.layer1.requires_grad = False
+    net.layer2.requires_grad = False
+    net.layer3.requires_grad = False
+    net.layer4.requires_grad = False
+    loss = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=0.01, betas=(0.5, 0.999))
+    return net, loss, optimizer

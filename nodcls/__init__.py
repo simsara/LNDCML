@@ -283,25 +283,22 @@ def try_resume(net, args, para: bool = False):
         log.info('No saved file. ID: %s. Epoch: %s' % (args.id, start_epoch))
 
 
-def get_learning_rate(epoch, max_epoch):
-    if epoch < 0.5 * max_epoch:
-        lr = 0.01
-    elif epoch < 0.8 * max_epoch:
-        lr = 0.001
+def get_learning_rate(epoch, args):
+    if epoch < 0.5 * args.epochs:
+        lr = args.learning_rate
+    elif epoch < 0.8 * args.epochs:
+        lr = args.learning_rate / 10
     else:
-        lr = 0.0001
+        lr = args.learning_rate / 100
     return lr
 
 
 def get_net(args):
     gpu.set_gpu(args.gpu)
     model = get_model(args.model)
-    net = model.get_model()
+    net, loss, optimizer = model.get_model()
     try_resume(net, args)
     net = torch.nn.DataParallel(net).cuda()
-    loss = MultiFocalLoss(2)
-    loss = CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=args.learning_rate, momentum=0.9, weight_decay=5e-4)
     return net, loss, optimizer
 
 
@@ -312,8 +309,11 @@ def run_train():
     save_dir = file.get_cls_net_save_dir(args)
 
     for epoch in range(max(args.start_epoch + 1, 1), args.epochs + 2):  # 跑完所有的epoch
+        lr = get_learning_rate(epoch, args)
+        for param_group in opt.param_groups:
+            param_group['lr'] = lr
         gmb_save_path = get_gbm_file_path(args.model, epoch - 1, args.cls_test_fold_num)
-        train(net, loss, opt, train_loader, epoch - 1, args.epochs, gmb_save_path)
+        train(net, loss, opt, train_loader, epoch - 1, gmb_save_path)
         test(net, loss, test_loader, gmb_save_path, args.cls_test_fold_num)
 
         if epoch <= args.epochs:
@@ -329,13 +329,11 @@ def run_train():
             log.info('Saved epoch %d' % epoch)
 
 
-def train(net, criterion, optimizer, train_loader, epoch, max_epoch, gmb_save_path):
+def train(net, criterion, optimizer, train_loader, epoch, gmb_save_path):
     train_size = len(train_loader.dataset)
     net.train()
-    lr = get_learning_rate(epoch, max_epoch)
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    log.info('Training epoch: %d. lr: %.4f' % (epoch, lr))
+
+    log.info('Using epoch %d to train.' % epoch)
     train_loss = 0
     correct = 0
     total = 0
@@ -593,7 +591,7 @@ def convert_net_from_baseline():
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
 
     model = get_model(args.model)
-    new_net = model.get_model()
+    new_net, _, _ = model.get_model()
     new_dict = new_net.state_dict()
 
     old_dict = net.module.state_dict()
