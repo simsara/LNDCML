@@ -1,3 +1,4 @@
+import cls_test
 import detect
 import detect_test
 import nodcls
@@ -29,5 +30,7 @@ if __name__ == '__main__':
         nodcls.convert_net_from_baseline()
     elif args.job == 'cls-gen-gbm':
         nodcls.gen_gbm_file()
+    elif args.job == 'cls-doc':
+        cls_test.check_with_doctor()
     else:
         raise ValueError('Not supported job name [%s]' % args.job)

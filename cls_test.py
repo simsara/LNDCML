@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.ensemble import GradientBoostingClassifier
+from torch import nn
 from torch.autograd import Variable
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
@@ -331,6 +332,151 @@ def full_pipeline():
     # detect_test.show_result(preprocess_file, save_file_prefix)
     corp()
     cls()
+
+
+def check_with_doctor():
+    col_names = ['seriesuid', 'coordX', 'coordY', 'coordZ', 'diameter_mm', 'malignant']
+    doc_col_names = ['seriesuid', 'coordX', 'coordY', 'coordZ', 'diameter_mm', 'malignant', 'd1', 'd2', 'd3', 'd4']
+
+    _, transform_test = nodcls.get_transform()
+
+    csv_file = os.path.join(file.get_cls_data_path(), 'annotationdetclsconvfnl_v3.csv')
+    csv_data = pd.read_csv(csv_file, names=col_names)
+
+    doc_csv_file = os.path.join(file.get_cls_data_path(), 'annotationdetclssgm_doctor.csv')
+    doc_csv_data = pd.read_csv(doc_csv_file, names=doc_col_names)
+
+    id_l = csv_data.seriesuid.tolist()[1:]
+    x_l = csv_data.coordX.tolist()[1:]
+    y_l = csv_data.coordY.tolist()[1:]
+    z_l = csv_data.coordZ.tolist()[1:]
+    d_l = csv_data.diameter_mm.tolist()[1:]
+    m_l = csv_data.malignant.tolist()[1:]
+    d1 = doc_csv_data.d1.tolist()[1:]
+    d2 = doc_csv_data.d1.tolist()[1:]
+    d3 = doc_csv_data.d1.tolist()[1:]
+    d4 = doc_csv_data.d1.tolist()[1:]
+
+    args = env.get_args()
+    net, _, _ = nodcls.get_net(args)
+    net.eval()
+
+    gbm = GradientBoostingClassifier(random_state=0)
+    trainfeat = np.load(os.path.join(cls_resources_dir, 'train_feat.npy'))
+    trainlabel = np.load(os.path.join(cls_resources_dir, 'train_label.npy'))
+    gbm.fit(trainfeat, trainlabel)
+
+    soft = nn.Softmax(dim=-1)
+
+    for idx in range(len(id_l)):
+        fname = id_l[idx]
+        pid = fname.split('-')[0]
+
+        zz = float(x_l[idx])
+        xx = float(y_l[idx])
+        yy = float(z_l[idx])
+        dd = float(d_l[idx])
+        mm = int(m_l[idx])
+        sc1 = int(d1[idx])
+        sc2 = int(d2[idx])
+        sc3 = int(d3[idx])
+        sc4 = int(d4[idx])
+        sc = [0, sc1, sc2, sc3, sc4]
+
+        subset_num = file.get_subset_num(pid)
+        if subset_num != args.args.cls_test_fold_num:
+            continue
+        if mm != 1:
+            continue
+
+        wrong = 0
+        for i in range(1, 5):
+            if sc[i] < 3:
+                wrong = i
+                break
+
+        log.info('Handling %s' % pid)
+
+        # crop raw pixel as feature
+        corp_file = os.path.join(file.get_cls_corp_path(), '%s.npy' % pid)
+        if not os.path.exists(corp_file):
+            log.error('Cant find corp for %s' % pid)
+            continue
+        data = np.load(corp_file)
+        bgx = data.shape[0] // 2 - corp_size // 2
+        bgy = data.shape[1] // 2 - corp_size // 2
+        bgz = data.shape[2] // 2 - corp_size // 2
+        data = np.array(data[bgx:bgx + corp_size, bgy:bgy + corp_size, bgz:bgz + corp_size])
+        feat = np.hstack((np.reshape(data, (-1,)) / 255, float(dd)))
+
+        tefnamelst = ['%.npy' % pid]
+        telabellst = []
+        tefeatlst = [feat]
+
+        testset = lunanod(file.get_cls_corp_path(),
+                          tefnamelst, telabellst, tefeatlst,
+                          train=False, transform=transform_test)
+        test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False,
+                                                  num_workers=args.workers)
+
+        correct = 0
+        prob = 0
+        with torch.no_grad():
+            test_size = len(test_loader.dataset)
+            testfeat = np.zeros((test_size, 2560 + corp_size * corp_size * corp_size + 1))
+            testlabel = np.zeros((test_size,))
+            idx = 0
+            for batch_idx, (inputs, targets, feat) in enumerate(test_loader):
+                inputs, targets = inputs.cuda(), targets.cuda()
+                inputs, targets = Variable(inputs), Variable(targets)
+                outputs, dfeat = net(inputs)
+                # add feature into the array
+                testfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())
+                for i in range(len(targets)):
+                    testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
+                    testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
+                idx += len(targets)
+                _, predicted = torch.max(outputs.data, 1)
+                correct += predicted.eq(targets.data).cpu().sum()
+                prob_list = soft(outputs)
+                prob = prob_list[0][1]
+
+        coord = np.asarray([xx, yy, zz])
+        clean_file_name = file.get_clean_file_path_name(pid)
+
+        mhd_file_name = file.get_mhd_file_path_name(pid)
+        slice_img, origin, spacing, is_flip = tools.load_itk_image(mhd_file_name)
+
+        mask_file_name = file.get_mask_file_path_name(pid)
+        mask_img = np.load(mask_file_name)
+
+        space_file_name = file.get_space_file_path_name(pid)
+        spacing = np.load(space_file_name)
+
+        origin_file_name = file.get_origin_file_path_name(pid)
+        origin = np.load(origin_file_name)
+
+        extend_box_file_name = file.get_extend_file_path_name(pid)
+        extend_box = np.load(extend_box_file_name)
+
+        label_file_name = file.get_label_file_path_name(pid)
+        label_data = np.load(label_file_name, allow_pickle=True)
+
+        x = int(xx)
+        y = int(yy)
+        z = int(zz)
+
+        preprocess_file = np.load(clean_file_name)
+        #     print z,x,y
+        dat0 = np.array(preprocess_file[0, z, :, :])
+        dat0[max(0, x - 10):min(dat0.shape[0], x + 10), max(0, y - 10)] = 255
+        dat0[max(0, x - 10):min(dat0.shape[0], x + 10), min(dat0.shape[1], y + 10)] = 255
+        dat0[max(0, x - 10), max(0, y - 10):min(dat0.shape[1], y + 10)] = 255
+        dat0[min(dat0.shape[0], x + 10), max(0, y - 10):min(dat0.shape[1], y + 10)] = 255
+        plt.imshow(dat0, 'gray')
+        img_filename = os.path.join(cls_resources_dir, '%s_%.2f_%d.png' % (pid, prob, wrong))
+        plt.savefig(img_filename)
+        plt.show()
 
 
 if __name__ == '__main__':

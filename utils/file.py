@@ -60,6 +60,21 @@ def get_label_file_path_name(uid):
     return get_file_path_name_by_uid(get_preprocess_result_path(), uid, '_label.npy')
 
 
+def get_subset_num(uid):
+    parent_dir = get_preprocess_result_path()
+    suffix = '_clean.npy'
+    for subset in os.listdir(parent_dir):
+        if not subset.startswith('subset'):
+            continue
+        subset_dir = os.path.join(parent_dir, subset)
+        for f in os.listdir(subset_dir):
+            if not f.endswith(suffix):
+                continue
+            if f.startswith(uid):
+                return int(subset[-1])
+    return None
+
+
 def get_net_save_dir(args):
     parent_dir = env.get('net_save_dir')
     if not os.path.exists(parent_dir):
