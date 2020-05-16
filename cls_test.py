@@ -339,7 +339,7 @@ def valid_int(i):
     if i is None:
         return 5
     f = float(i)
-    if f == math.nan:
+    if math.isnan(f):
         return 5
     return int(f)
 
@@ -395,7 +395,7 @@ def check_with_doctor():
         sc = [0, sc1, sc2, sc3, sc4]
 
         subset_num = file.get_subset_num(pid)
-        log.info('Handling %s. Fold num %d' % (pid, subset_num))
+        log.info('Handling %s. Fold num %d. Score: %s' % (pid, subset_num, sc))
         if subset_num != args.cls_test_fold_num:
             continue
         if mm != 1:
