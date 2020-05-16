@@ -407,7 +407,7 @@ def check_with_doctor():
             log.error('Cant find score of %s' % fname)
             continue
 
-        sc = pid_map[pid].pop()
+        sc = pid_map[pid].pop(0)
 
         subset_num = file.get_subset_num(pid)
         log.info('Handling %s. Fold num %d' % (pid, subset_num))
