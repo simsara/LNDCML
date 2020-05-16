@@ -360,15 +360,18 @@ def check_with_doctor():
     args = env.get_args()
     net, _, _ = nodcls.get_net(args)
     net.eval()
+    log.info('Net loaded')
 
     gbm = GradientBoostingClassifier(random_state=0)
     trainfeat = np.load(os.path.join(cls_resources_dir, 'train_feat.npy'))
     trainlabel = np.load(os.path.join(cls_resources_dir, 'train_label.npy'))
     gbm.fit(trainfeat, trainlabel)
+    log.info('GBM loaded')
 
     soft = nn.Softmax(dim=-1)
 
     for idx in range(len(id_l)):
+
         fname = id_l[idx]
         pid = fname.split('-')[0]
 
@@ -376,14 +379,15 @@ def check_with_doctor():
         xx = float(y_l[idx])
         yy = float(z_l[idx])
         dd = float(d_l[idx])
-        mm = int(m_l[idx])
-        sc1 = int(d1[idx])
-        sc2 = int(d2[idx])
-        sc3 = int(d3[idx])
-        sc4 = int(d4[idx])
+        mm = int(float(m_l[idx]))
+        sc1 = int(float(d1[idx]))
+        sc2 = int(float(d2[idx]))
+        sc3 = int(float(d3[idx]))
+        sc4 = int(float(d4[idx]))
         sc = [0, sc1, sc2, sc3, sc4]
 
         subset_num = file.get_subset_num(pid)
+        log.info('Handling %s. Fold num %d' % (pid, subset_num))
         if subset_num != args.args.cls_test_fold_num:
             continue
         if mm != 1:
@@ -394,8 +398,6 @@ def check_with_doctor():
             if sc[i] < 3:
                 wrong = i
                 break
-
-        log.info('Handling %s' % pid)
 
         # crop raw pixel as feature
         corp_file = os.path.join(file.get_cls_corp_path(), '%s.npy' % pid)
