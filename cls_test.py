@@ -371,7 +371,6 @@ def check_with_doctor():
     soft = nn.Softmax(dim=-1)
 
     for idx in range(len(id_l)):
-
         fname = id_l[idx]
         pid = fname.split('-')[0]
 
@@ -388,7 +387,7 @@ def check_with_doctor():
 
         subset_num = file.get_subset_num(pid)
         log.info('Handling %s. Fold num %d' % (pid, subset_num))
-        if subset_num != args.args.cls_test_fold_num:
+        if subset_num != args.cls_test_fold_num:
             continue
         if mm != 1:
             continue
@@ -400,9 +399,9 @@ def check_with_doctor():
                 break
 
         # crop raw pixel as feature
-        corp_file = os.path.join(file.get_cls_corp_path(), '%s.npy' % pid)
+        corp_file = os.path.join(file.get_cls_corp_path(), '%s.npy' % fname)
         if not os.path.exists(corp_file):
-            log.error('Cant find corp for %s' % pid)
+            log.error('Cant find corp for %s' % fname)
             continue
         data = np.load(corp_file)
         bgx = data.shape[0] // 2 - corp_size // 2
@@ -411,8 +410,8 @@ def check_with_doctor():
         data = np.array(data[bgx:bgx + corp_size, bgy:bgy + corp_size, bgz:bgz + corp_size])
         feat = np.hstack((np.reshape(data, (-1,)) / 255, float(dd)))
 
-        tefnamelst = ['%.npy' % pid]
-        telabellst = []
+        tefnamelst = ['%s.npy' % fname]
+        telabellst = [mm]
         tefeatlst = [feat]
 
         testset = lunanod(file.get_cls_corp_path(),
