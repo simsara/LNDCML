@@ -355,16 +355,30 @@ def check_with_doctor():
     doc_csv_file = os.path.join(file.get_cls_data_path(), 'annotationdetclssgm_doctor.csv')
     doc_csv_data = pd.read_csv(doc_csv_file, names=doc_col_names)
 
+    pid_map = {}
+    id_l = doc_csv_data.seriesuid.tolist()[1:]
+    d1 = doc_csv_data.d1.tolist()[1:]
+    d2 = doc_csv_data.d2.tolist()[1:]
+    d3 = doc_csv_data.d3.tolist()[1:]
+    d4 = doc_csv_data.d4.tolist()[1:]
+    for idx in range(len(id_l)):
+        fname = id_l[idx]
+        sc1 = valid_int(d1[idx])
+        sc2 = valid_int(d2[idx])
+        sc3 = valid_int(d3[idx])
+        sc4 = valid_int(d4[idx])
+        sc = [0, sc1, sc2, sc3, sc4]
+        arr = []
+        if fname not in pid_map:
+            pid_map[fname] = []
+        pid_map[fname].append(sc)
+
     id_l = csv_data.seriesuid.tolist()[1:]
     x_l = csv_data.coordX.tolist()[1:]
     y_l = csv_data.coordY.tolist()[1:]
     z_l = csv_data.coordZ.tolist()[1:]
     d_l = csv_data.diameter_mm.tolist()[1:]
     m_l = csv_data.malignant.tolist()[1:]
-    d1 = doc_csv_data.d1.tolist()[1:]
-    d2 = doc_csv_data.d2.tolist()[1:]
-    d3 = doc_csv_data.d3.tolist()[1:]
-    d4 = doc_csv_data.d4.tolist()[1:]
 
     args = env.get_args()
     net, _, _ = nodcls.get_net(args)
@@ -388,11 +402,12 @@ def check_with_doctor():
         yy = float(z_l[idx])
         dd = float(d_l[idx])
         mm = int(float(m_l[idx]))
-        sc1 = valid_int(d1[idx])
-        sc2 = valid_int(d2[idx])
-        sc3 = valid_int(d3[idx])
-        sc4 = valid_int(d4[idx])
-        sc = [0, sc1, sc2, sc3, sc4]
+
+        if pid not in pid_map:
+            log.error('Cant find score of %s' % fname)
+            continue
+
+        sc = pid_map[pid].pop(0)
 
         subset_num = file.get_subset_num(pid)
         log.info('Handling %s. Fold num %d. Score: %s' % (pid, subset_num, sc))
