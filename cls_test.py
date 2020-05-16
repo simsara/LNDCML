@@ -353,9 +353,9 @@ def check_with_doctor():
     d_l = csv_data.diameter_mm.tolist()[1:]
     m_l = csv_data.malignant.tolist()[1:]
     d1 = doc_csv_data.d1.tolist()[1:]
-    d2 = doc_csv_data.d1.tolist()[1:]
-    d3 = doc_csv_data.d1.tolist()[1:]
-    d4 = doc_csv_data.d1.tolist()[1:]
+    d2 = doc_csv_data.d2.tolist()[1:]
+    d3 = doc_csv_data.d3.tolist()[1:]
+    d4 = doc_csv_data.d4.tolist()[1:]
 
     args = env.get_args()
     net, _, _ = nodcls.get_net(args)
