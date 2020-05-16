@@ -425,17 +425,17 @@ def check_with_doctor():
             test_size = len(test_loader.dataset)
             testfeat = np.zeros((test_size, 2560 + corp_size * corp_size * corp_size + 1))
             testlabel = np.zeros((test_size,))
-            idx = 0
+            test_idx = 0
             for batch_idx, (inputs, targets, feat) in enumerate(test_loader):
                 inputs, targets = inputs.cuda(), targets.cuda()
                 inputs, targets = Variable(inputs), Variable(targets)
                 outputs, dfeat = net(inputs)
                 # add feature into the array
-                testfeat[idx:idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())
+                testfeat[test_idx:test_idx + len(targets), :2560] = np.array(dfeat.data.cpu().numpy())
                 for i in range(len(targets)):
-                    testfeat[idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
-                    testlabel[idx + i] = np.array(targets[i].data.cpu().numpy())
-                idx += len(targets)
+                    testfeat[test_idx + i, 2560:] = np.array(Variable(feat[i]).data.cpu().numpy())
+                    testlabel[test_idx + i] = np.array(targets[i].data.cpu().numpy())
+                test_idx += len(targets)
                 _, predicted = torch.max(outputs.data, 1)
                 correct += predicted.eq(targets.data).cpu().sum()
                 prob_list = soft(outputs)
