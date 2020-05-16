@@ -475,7 +475,10 @@ def check_with_doctor():
         dat0[max(0, x - 10), max(0, y - 10):min(dat0.shape[1], y + 10)] = 255
         dat0[min(dat0.shape[0], x + 10), max(0, y - 10):min(dat0.shape[1], y + 10)] = 255
         plt.imshow(dat0, 'gray')
-        img_filename = os.path.join(cls_resources_dir, '%s_%.2f_%d.png' % (pid, prob, wrong))
+        png_dir = os.path.join(cls_resources_dir, 'png')
+        if not os.path.exists(png_dir):
+            os.mkdir(png_dir)
+        img_filename = os.path.join(png_dir, '%s_%.2f_%d.png' % (pid, prob, wrong))
         plt.savefig(img_filename)
         plt.show()
 
