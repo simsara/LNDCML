@@ -1,4 +1,5 @@
 import json
+import math
 import os
 
 import matplotlib.pyplot as plt
@@ -334,6 +335,14 @@ def full_pipeline():
     cls()
 
 
+def valid_int(i):
+    if i is None:
+        return 5
+    f = float(i)
+    if f == math.nan:
+        return 5
+    return int(f)
+
 def check_with_doctor():
     col_names = ['seriesuid', 'coordX', 'coordY', 'coordZ', 'diameter_mm', 'malignant']
     doc_col_names = ['seriesuid', 'coordX', 'coordY', 'coordZ', 'diameter_mm', 'malignant', 'd1', 'd2', 'd3', 'd4']
@@ -379,10 +388,10 @@ def check_with_doctor():
         yy = float(z_l[idx])
         dd = float(d_l[idx])
         mm = int(float(m_l[idx]))
-        sc1 = int(float(d1[idx]))
-        sc2 = int(float(d2[idx]))
-        sc3 = int(float(d3[idx]))
-        sc4 = int(float(d4[idx]))
+        sc1 = valid_int(d1[idx])
+        sc2 = valid_int(d2[idx])
+        sc3 = valid_int(d3[idx])
+        sc4 = valid_int(d4[idx])
         sc = [0, sc1, sc2, sc3, sc4]
 
         subset_num = file.get_subset_num(pid)
